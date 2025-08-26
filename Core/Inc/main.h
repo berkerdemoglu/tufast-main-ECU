@@ -37,24 +37,6 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#define CHARGER_RXID  0x000C0100
-#define CHARGER_TXID  0x000C0000
-#define BMS_RXID  0x232
-
-#define PORT_RELAY_STATE  GPIOA
-#define PIN_RELAY_STATE  GPIO_PIN_8
-
-#define PORT_PRECHARGE  GPIOB
-#define PIN_PRECHARGE  GPIO_PIN_0 // not connected to LED
-
-#define PORT_NORMAL  GPIOA
-#define PIN_NORMAL   GPIO_PIN_4
-
-#define PORT_CHARGE  GPIOA
-#define PIN_CHARGE   GPIO_PIN_5
-
-#define PORT_ERROR  GPIOA
-#define PIN_ERROR   GPIO_PIN_6
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -77,13 +59,30 @@ typedef union {
 
 // The actual state of the motorcycle
 enum MotoState {
-    STATE_PRECHARGE 	= 0,
-    STATE_NORMAL    	= 1,
-    STATE_CHARGE    	= 2,
-    STATE_ERROR     	= 3
+    STATE_PRECHARGE 		= 0,
+    STATE_NORMAL    		= 1,
+    STATE_CHARGE    		= 2,
+    STATE_ERROR     		= 3
 };
 
-// Race modes
+// Communication state with the charger
+enum ChargerCommState {
+	CHARGER_ON 				= 1,
+	VOUT_SET 				= 2,
+	IOUT_SET 				= 3,
+	FAULT_STATUS 			= 4,
+	CHARGER_OFF 			= 5
+};
+
+// Communication state with the BMS
+enum BMSCommState {
+	BMS_ON 					= 1,
+	SLEEP 					= 2,
+	VOLTAGE 				= 3,
+	CURRENT 				= 4
+};
+
+// Racing-related modes and states
 enum RaceMode {
 	MODE_PIT_LIMITER 		= 1,
 	MODE_RACE 				= 2,
@@ -92,27 +91,9 @@ enum RaceMode {
 	MODE_GYMKHANA 			= 5
 };
 
-// Communication state with the charger
-enum ChargerCommState {
-	ON 				= 1,
-	VOUT_SET 		= 2,
-	IOUT_SET 		= 3,
-	FAULT_STATUS 	= 4,
-	OFF 			= 5
-};
-
-// Communication state with 
-enum BMSCommState {
-	ON 			= 1,
-	SLEEP 		= 2,
-	VOLTAGE 	= 3,
-	CURRENT 	= 4
-};
-
-
 enum RainState {
-	STATE_NO_RAIN 	= 0,
-	STATE_RAIN 		= 1
+	STATE_NO_RAIN 			= 0,
+	STATE_RAIN 				= 1
 };
 
 struct RaceState {
@@ -136,6 +117,7 @@ struct Throttle {
 };
 
 // Steering angle
+// TODO: Some parts of this struct are not used
 #define STEERING_BUFFER_SIZE 32
 struct SteeringAngle {
 	can_message_four steering_value;
@@ -184,16 +166,44 @@ void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 void steering_angle_init(struct SteeringAngle* sa);
 void steering_angle_avg(struct SteeringAngle* sa, float value);
 
+// BMS, Charger, Output Pins related
+void BMS_Charger(void);
+void CAN_Charger(uint8_t value);
+
+void fault_pin_service(void);
+/*
+Sets the pin state (SET or RESET) for the output pins.
+*/
+void set_output_pins(
+    GPIO_PinState o1, GPIO_PinState o2, 
+    GPIO_PinState o3, GPIO_PinState o4
+);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-// Aswin throttle values (?)
-#define SPEED_REFERENCE 1500.0f  // TODO: remove
-#define MAX_RPM 1500.0f
+#define CHARGER_RXID  		0x000C0100
+#define CHARGER_TXID 		0x000C0000
+#define BMS_RXID  			0x232
 
-// The macros below are to be used in the convert function
+#define PORT_RELAY_STATE  	GPIOA
+#define PIN_RELAY_STATE  	GPIO_PIN_8
+
+#define PORT_PRECHARGE  	GPIOB
+#define PIN_PRECHARGE  		GPIO_PIN_0 // not connected to LED
+
+#define PORT_NORMAL  		GPIOA
+#define PIN_NORMAL   		GPIO_PIN_4
+
+#define PORT_CHARGE  		GPIOA
+#define PIN_CHARGE   		GPIO_PIN_5
+
+#define PORT_ERROR  		GPIOA
+#define PIN_ERROR   		GPIO_PIN_6
+
+// The macros below are to be used in the float convert function for the display
 #define DECIMAL_POINT_0 1
 #define DECIMAL_POINT_1 10
 #define DECIMAL_POINT_2 100

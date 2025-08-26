@@ -51,9 +51,9 @@ FDCAN_HandleTypeDef hfdcan1;
 /* USER CODE BEGIN PV */
 // Race state
 struct RaceState race_state;
-MotoState moto_state = STATE_PRECHARGE;
-ChargerCom charge_com = ON;
-BMSCom BMS = SLEEP;
+enum MotoState moto_state = STATE_PRECHARGE;
+enum ChargerCommState charge_comm_state = ON;
+enum BMSCommState bms_comm_state = SLEEP;
 // Sensors
 struct Throttle throttle_sensor;
 struct SteeringAngle steering_sensor;
@@ -131,7 +131,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 }
 
 // error detection, TODO: fix func description
-void fault_pin_service() {
+void fault_pin_service(void) {
     if (HAL_GPIO_ReadPin(PORT_RELAY_STATE, PIN_RELAY_STATE) == GPIO_PIN_SET) {
         moto_state = STATE_ERROR;
     }
@@ -142,14 +142,11 @@ void fault_pin_service() {
     }
 }
 
-
-
-
-//set output, TODO: fix func description
-static inline void set_all(
-        GPIO_PinState o1, GPIO_PinState o2, 
-        GPIO_PinState o3, GPIO_PinState o4
-    )
+// set output, TODO: fix func description
+void set_output_pins(
+    GPIO_PinState o1, GPIO_PinState o2, 
+    GPIO_PinState o3, GPIO_PinState o4
+)
 {
     HAL_GPIO_WritePin(PORT_PRECHARGE, PIN_PRECHARGE, o1);
     HAL_GPIO_WritePin(PORT_NORMAL, PIN_NORMAL, o2);
@@ -163,10 +160,10 @@ void race_state_init(struct RaceState* rs) {
     rs->race_mode = MODE_RACE;
 }
 
-void check_moto_state(uint8_t toggle_precharge) {
+void check_moto_state(uint8_t precharge_time_delta) {
     switch (moto_state) {
         case STATE_PRECHARGE:
-            if (toggle_precharge > 200) {
+            if (precharge_time_delta > 200) {  // toggle every 200 ms
                 HAL_GPIO_TogglePin(PORT_NORMAL, PIN_NORMAL);
             }
             break;
@@ -244,6 +241,7 @@ void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, 
 }
 
 
+// TODO: Update tx_header every time
 void send_CAN_message(uint32_t address, can_message_eight* msg) {
     // Update ID of the transmit header
     tx_header.Identifier = address;
@@ -257,16 +255,14 @@ void send_CAN_message_four(uint32_t address, can_message_four* msg) {
     tx_header.Identifier = address;
     tx_header.DataLength = FDCAN_DLC_BYTES_4;
 
-  if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, msg->bytes) != HAL_OK) {
+    if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, msg->bytes) != HAL_OK) {
         Error_Handler();
-
-
     }
-  tx_header.DataLength = FDCAN_DLC_BYTES_8;;
+    tx_header.DataLength = FDCAN_DLC_BYTES_8;
 }
 
 void send_turn_on_inverter(void) {
-    // Sends a ON message to the inverter
+    // Sends an ON message to the inverter
     send_CAN_message(0x201, &inverter_on_msg);
 }
 
@@ -331,46 +327,47 @@ void throttle_init(struct Throttle* thr) {
 }
 
 void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
-     // Calibration
-     float volt = 3.3f*((float) adc_value) / 4096.0f;  // TODO: we should always get 0 ?
-     float calc = ((float) volt-0.42f)*100.0f/1.65f;
+    // Calibration
+    float volt = 3.3f*((float) adc_value) / 4096.0f;  // TODO: we should always get 0 ?
+    float calc = ((float) volt-0.42f)*100.0f/1.65f;
 
-     th->adc_sum -= th->buffer[th->buffer_index];
+    th->adc_sum -= th->buffer[th->buffer_index];
 
-     // Add new sample
-     th->buffer[th->buffer_index] = calc;
-     th->adc_sum += calc;
+    // Add new sample
+    th->buffer[th->buffer_index] = calc;
+    th->adc_sum += calc;
 
-     // Increment index
-     th->buffer_index++;
-     if (th->buffer_index >= THROTTLE_BUFFER_SIZE) {
-         th->buffer_index = 0;
-     }
+    // Increment index
+    th->buffer_index++;
+    if (th->buffer_index >= THROTTLE_BUFFER_SIZE) {
+        th->buffer_index = 0;
+    }
 
 
-     float output_value = th->adc_sum / THROTTLE_BUFFER_SIZE;
+    float output_value = th->adc_sum / THROTTLE_BUFFER_SIZE;
 
-     if (output_value > 100.0f){
-         output_value = 100.0f;
-     }
+    if (output_value > 100.0f){
+        output_value = 100.0f;
+    }
 
      // Hysteresis -- TODO: This could be cleaned up?
-     if (output_value > th->hysteresis_min){
-         th->throttle_activated = 1;
-     }
-     if (th->throttle_activated == 1 && output_value < (th->hysteresis_min - th->hysteresis)){
-         th->throttle_activated = 0;
-     }
+    if (output_value > th->hysteresis_min){
+        th->throttle_activated = 1;
+    }
+    if (th->throttle_activated == 1 && output_value < (th->hysteresis_min - th->hysteresis)){
+        th->throttle_activated = 0;
+    }
 
-     // Write output value
-     if (th->throttle_activated == 1) {
-         th->throttle_value.float_val = output_value;
-     } else {
-         th->throttle_value.float_val = 0.0f;
-     }
+    // Write output value
+    if (th->throttle_activated == 1) {
+        th->throttle_value.float_val = output_value;
+    } else {
+        th->throttle_value.float_val = 0.0f;
+    }
 }
 
 // Steering angle functions
+// TODO: remove steering angle functions
 void steering_angle_init(struct SteeringAngle* sa) {
     sa->adc_sum = 0;
     sa->buffer_index = 0;
@@ -406,44 +403,47 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
     adc_complete_flag = 1;
 }
 
-
-void CAN_Charger(uint8_t value){
-    if (charge_com==OFF){
+// BMS and Charger functions
+void CAN_Charger(uint8_t value) {
+    if (charger_comm_state == CHARGER_OFF) {
         tx_data_four.bytes[0] = 0;
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 0;
         tx_data_four.bytes[3] = 0;
-    }
-    if (charge_com==ON){
+    } else if (charger_comm_state == CHARGER_ON) {
         tx_data_four.bytes[0] = 0;
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 1;
         tx_data_four.bytes[3] = 0;
-    }
-    if (charge_com==VOUT_SET){
+    } else if (charger_comm_state == VOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
         tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 0x58;// change la valeur pour celle dont on a besoin
-        tx_data_four.bytes[3] = 0x1B; // attention frame format!
-
-    }
-    if (charge_com == IOUT_SET) {
+        tx_data_four.bytes[2] = 0x58;// change the value to the one we need
+        tx_data_four.bytes[3] = 0x1B; // frame format!
+    } else if (charger_comm_state == IOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 0x10;
         tx_data_four.bytes[3] = 0x27;
-    }
-    if (charge_com == FAULT_STATUS) {
+    } else {  // charge_com == FAULT_STATUS
         // TODO: different action here
     }
-        tx_header.IdType = FDCAN_EXTENDED_ID;
-    send_CAN_message_four(CHARGER_RXID, &tx_data_four); //je dois le decommenter ensuite
+    tx_header.IdType = FDCAN_EXTENDED_ID;
+    send_CAN_message_four(CHARGER_RXID, &tx_data_four);
     tx_header.IdType = FDCAN_STANDARD_ID;
+}
 
- }
- void BMS_Charger(void){
-
-    if (BMS == SLEEP){
+void BMS_Charger(void) {
+    if (bms_comm_state == SLEEP) {
+        tx_data.bytes[0] = 0x20;
+        tx_data.bytes[1] = 0;
+        tx_data.bytes[2] = 0x10;
+        tx_data.bytes[3] = 0x27;
+        tx_data.bytes[4] = 0x20;
+        tx_data.bytes[5] = 0;
+        tx_data.bytes[6] = 0x10;
+        tx_data.bytes[7] = 0x27;
+    } else if (bms_comm_state == BMS_ON) {
         tx_data.bytes[0] = 0x20;
         tx_data.bytes[1] = 0;
         tx_data.bytes[2] = 0x10;
@@ -453,29 +453,8 @@ void CAN_Charger(uint8_t value){
         tx_data.bytes[6] = 0x10;
         tx_data.bytes[7] = 0x27;
     }
-    if (BMS == BMS_ON){
-        tx_data.bytes[0] = 0x20;
-        tx_data.bytes[1] = 0;
-        tx_data.bytes[2] = 0x10;
-        tx_data.bytes[3] = 0x27;
-        tx_data.bytes[4] = 0x20;
-        tx_data.bytes[5] = 0;
-        tx_data.bytes[6] = 0x10;
-        tx_data.bytes[7] = 0x27;
-    }
-        send_CAN_message(BMS_RXID, &tx_data); //je dois le decommenter ensuite
-
- }
-void State_Change(uint32_t time_now,uint32_t time_last_200ms,uint32_t time_last_3000ms){
-    uint8_t toggle_precharge = time_now - time_last_200ms;
-    if (time_now - time_last_3000ms > 3000)
-    {
-        moto_state = STATE_NORMAL;
-        time_last_3000ms= -3000; // todo: change the code to be compliant with the rules
-    }
-
-    fault_pin_service();
-    check_moto_state(toggle_precharge);
+    // TODO: this function probably needs more work!
+    send_CAN_message(BMS_RXID, &tx_data);
 }
 
 
@@ -597,6 +576,8 @@ int main(void)
             } else {
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
             }
+
+            check_moto_state(time_now - time_last_200ms);
 
             time_last_200ms = time_now;  // update last time
         }
