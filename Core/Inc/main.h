@@ -60,14 +60,14 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 typedef union {
-    float sensor_float;
-    uint32_t sensor_int;
+    float float_val;
+    uint32_t int_val;
     uint8_t bytes[4];
 } can_message_four;
 
 typedef union {
-    uint64_t sensor_int;  // we might not need this
-    double sensor_double;  // we might not need this
+    uint64_t int_val;
+    double double_val;
     struct {
         can_message_four first;
         can_message_four second;
@@ -75,41 +75,44 @@ typedef union {
     uint8_t bytes[8];
 } can_message_eight;
 
-// motorcycle State
-typedef enum {
-    STATE_PRECHARGE = 0,
-    STATE_NORMAL    = 1,
-    STATE_CHARGE    = 2,
-    STATE_ERROR     = 3
-} MotoState;
+// The actual state of the motorcycle
+enum MotoState {
+    STATE_PRECHARGE 	= 0,
+    STATE_NORMAL    	= 1,
+    STATE_CHARGE    	= 2,
+    STATE_ERROR     	= 3
+};
 
 // Race modes
 enum RaceMode {
-	MODE_PIT_LIMITER = 1,
-	MODE_RACE = 2,
-	MODE_ECO = 3,
-	MODE_SENSOR_READING = 4,
-	MODE_GYMKHANA = 5
+	MODE_PIT_LIMITER 		= 1,
+	MODE_RACE 				= 2,
+	MODE_ECO 				= 3,
+	MODE_SENSOR_READING 	= 4,
+	MODE_GYMKHANA 			= 5
 };
-typedef enum  {
-	ON = 1,
-	VOUT_SET = 2,
-	IOUT_SET = 3,
-	FAULT_STATUS = 4,
-	OFF = 5
-} ChargerCom;
 
-typedef enum  {
-	BMS_ON = 1,
-	SLEEP = 2,
-	Voltage = 3,
-	current = 4,
-} BMSCom;
+// Communication state with the charger
+enum ChargerCommState {
+	ON 				= 1,
+	VOUT_SET 		= 2,
+	IOUT_SET 		= 3,
+	FAULT_STATUS 	= 4,
+	OFF 			= 5
+};
+
+// Communication state with 
+enum BMSCommState {
+	ON 			= 1,
+	SLEEP 		= 2,
+	VOLTAGE 	= 3,
+	CURRENT 	= 4
+};
 
 
 enum RainState {
-	STATE_NO_RAIN = 0,
-	STATE_RAIN = 1
+	STATE_NO_RAIN 	= 0,
+	STATE_RAIN 		= 1
 };
 
 struct RaceState {
@@ -162,14 +165,13 @@ void Error_Handler(void);
 void race_state_init(struct RaceState* rs);
 void handle_button_press(struct RaceState* rs, uint8_t button_index);
 
-void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
-
-void send_CAN_message(uint32_t address, can_message_eight* msg);
-void send_CAN_message_four(uint32_t address, can_message_four* msg);
+void send_can_message_four(uint32_t address, can_message_four* msg);
+void send_can_message_eight(uint32_t address, can_message_eight* msg);
 void send_turn_on_inverter(void);
 void send_velocity_ref_inverter(struct Throttle* th);
 
-// Display transmission functions
+// Display CAN transmit functions
+void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
 void send_throttle_steering_display(struct Throttle* th, struct SteeringAngle* sa);
 void send_race_mode_display(struct RaceState* rs);
 void send_rain_state_display(struct RaceState* rs);
