@@ -52,11 +52,10 @@ FDCAN_HandleTypeDef hfdcan1;
 // Race state
 struct RaceState race_state;
 enum MotoState moto_state = STATE_PRECHARGE;
-enum ChargerCommState charge_comm_state = ON;
-enum BMSCommState bms_comm_state = SLEEP;
+enum ChargerCommState charger_comm_state = CHARGER_ON;
+enum BMSCommState bms_comm_state = BMS_SLEEP;
 // Sensors
 struct Throttle throttle_sensor;
-struct SteeringAngle steering_sensor;
 
 // CAN
 FDCAN_TxHeaderTypeDef tx_header;
@@ -71,7 +70,7 @@ can_message_eight button_data_test;
 
 // ADC
 __IO uint8_t adc_complete_flag = 0;
-uint16_t raw_adc_values[2];
+uint16_t raw_adc_value;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -130,7 +129,6 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
     }
 }
 
-// error detection, TODO: fix func description
 void fault_pin_service(void) {
     if (HAL_GPIO_ReadPin(PORT_RELAY_STATE, PIN_RELAY_STATE) == GPIO_PIN_SET) {
         moto_state = STATE_ERROR;
@@ -142,7 +140,6 @@ void fault_pin_service(void) {
     }
 }
 
-// set output, TODO: fix func description
 void set_output_pins(
     GPIO_PinState o1, GPIO_PinState o2, 
     GPIO_PinState o3, GPIO_PinState o4
@@ -159,27 +156,6 @@ void race_state_init(struct RaceState* rs) {
     rs->rain_state = STATE_NO_RAIN;
     rs->race_mode = MODE_RACE;
 }
-
-void check_moto_state(uint8_t precharge_time_delta) {
-    switch (moto_state) {
-        case STATE_PRECHARGE:
-            if (precharge_time_delta > 200) {  // toggle every 200 ms
-                HAL_GPIO_TogglePin(PORT_NORMAL, PIN_NORMAL);
-            }
-            break;
-        case STATE_NORMAL:
-            set_all(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
-            break;
-        case STATE_CHARGE:
-            set_all(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
-            break;
-        case STATE_ERROR:
-            set_all(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
-            break;
-    }
-}
-
-
 
 void handle_button_press(struct RaceState* rs, uint8_t button_index) {
     if (button_index == 1) {
@@ -279,22 +255,12 @@ void send_velocity_ref_inverter(struct Throttle* th) {
 
 
 // Display transmission functions
-void send_throttle_steering_display(struct Throttle* th, struct SteeringAngle* sa) {
+void send_throttle_display(struct Throttle* th) {
     // Send throttle in the first 4 bytes
     th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
     convert_float_display(&th->throttle_value, &tx_data.first, DECIMAL_POINT_2);
 
-    // Send steering angle in the last 4 bytes
-    // todo: REMOVE THE IF STATEMENTS HERE LATER, THIS IS JUST FOR ROLLOUT
-    if (sa->steering_value.float_val < 0) {
-        if (sa->steering_value.float_val < -24.0f) {
-            sa->steering_value.float_val = 24.0f;
-        } else {
-            sa->steering_value.float_val = -sa->steering_value.float_val;
-        }
-    }
-    convert_float_display(&sa->steering_value, &tx_data.second, DECIMAL_POINT_2);
-
+    tx_data.second.int_val = 0;
     send_CAN_message(0x102, &tx_data);
 }
 
@@ -366,45 +332,13 @@ void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
     }
 }
 
-// Steering angle functions
-// TODO: remove steering angle functions
-void steering_angle_init(struct SteeringAngle* sa) {
-    sa->adc_sum = 0;
-    sa->buffer_index = 0;
-
-    // Init buffer with zeroes
-    // maybe this can also be done at initialization
-    for (int i = 0; i < THROTTLE_BUFFER_SIZE; i++) {
-        sa->buffer[i] = 0;
-    }
-
-    sa->steering_value.float_val = 0.0f;  // init with 0 for safety
-}
-
-void steering_angle_avg(struct SteeringAngle* sa, float steering_value) {
-    sa->adc_sum -= sa->buffer[sa->buffer_index];
-
-    // Add new sample
-    sa->buffer[sa->buffer_index] = steering_value;
-    sa->adc_sum += steering_value;
-
-    // Increment index
-    sa->buffer_index++;
-    if (sa->buffer_index >= 32) {
-        sa->buffer_index = 0;
-    }
-
-    // Write average value
-    sa->steering_value.float_val = sa->adc_sum / 32.0f;
-}
-
 // ADC functions
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
     adc_complete_flag = 1;
 }
 
 // BMS and Charger functions
-void CAN_Charger(uint8_t value) {
+void handle_charger_CAN(uint8_t value) {
     if (charger_comm_state == CHARGER_OFF) {
         tx_data_four.bytes[0] = 0;
         tx_data_four.bytes[1] = 0;
@@ -415,17 +349,17 @@ void CAN_Charger(uint8_t value) {
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 1;
         tx_data_four.bytes[3] = 0;
-    } else if (charger_comm_state == VOUT_SET) {
+    } else if (charger_comm_state == CHARGER_VOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 0x58;// change the value to the one we need
         tx_data_four.bytes[3] = 0x1B; // frame format!
-    } else if (charger_comm_state == IOUT_SET) {
+    } else if (charger_comm_state == CHARGER_IOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
         tx_data_four.bytes[1] = 0;
         tx_data_four.bytes[2] = 0x10;
         tx_data_four.bytes[3] = 0x27;
-    } else {  // charge_com == FAULT_STATUS
+    } else {  // charger_comm_state == FAULT_STATUS
         // TODO: different action here
     }
     tx_header.IdType = FDCAN_EXTENDED_ID;
@@ -433,8 +367,8 @@ void CAN_Charger(uint8_t value) {
     tx_header.IdType = FDCAN_STANDARD_ID;
 }
 
-void BMS_Charger(void) {
-    if (bms_comm_state == SLEEP) {
+void handle_BMS_CAN(void) {
+    if (bms_comm_state == BMS_SLEEP) {
         tx_data.bytes[0] = 0x20;
         tx_data.bytes[1] = 0;
         tx_data.bytes[2] = 0x10;
@@ -457,6 +391,25 @@ void BMS_Charger(void) {
     send_CAN_message(BMS_RXID, &tx_data);
 }
 
+void check_moto_state(uint8_t precharge_time_delta) {
+    switch (moto_state) {
+        case STATE_PRECHARGE:
+            if (precharge_time_delta > 200) {  // toggle every 200 ms
+                HAL_GPIO_TogglePin(PORT_NORMAL, PIN_NORMAL);
+            }
+            break;
+        case STATE_NORMAL:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
+            break;
+        case STATE_CHARGE:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
+            break;
+        case STATE_ERROR:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
+            break;
+    }
+};
+
 
 /* USER CODE END 0 */
 
@@ -466,34 +419,35 @@ void BMS_Charger(void) {
   */
 int main(void)
 {
-    /* USER CODE BEGIN 1 */
 
-    /* USER CODE END 1 */
+  /* USER CODE BEGIN 1 */
 
-    /* MCU Configuration--------------------------------------------------------*/
+  /* USER CODE END 1 */
 
-    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-    HAL_Init();
+  /* MCU Configuration--------------------------------------------------------*/
 
-    /* USER CODE BEGIN Init */
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-    /* USER CODE END Init */
+  /* USER CODE BEGIN Init */
 
-    /* Configure the system clock */
-    SystemClock_Config();
+  /* USER CODE END Init */
 
-    /* USER CODE BEGIN SysInit */
+  /* Configure the system clock */
+  SystemClock_Config();
 
-    /* USER CODE END SysInit */
+  /* USER CODE BEGIN SysInit */
 
-    /* Initialize all configured peripherals */
-    MX_GPIO_Init();
-    MX_DMA_Init();
-    MX_ADC2_Init();
-    MX_FDCAN1_Init();
-    /* USER CODE BEGIN 2 */
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_ADC2_Init();
+  MX_FDCAN1_Init();
+  /* USER CODE BEGIN 2 */
     // Start ADC2
-    HAL_ADC_Start_DMA(&hadc2, (uint32_t*) raw_adc_values, 2);
+    HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
 
     // Start FDCAN1 and activate receive notifications
     if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)
@@ -509,26 +463,24 @@ int main(void)
     race_state_init(&race_state);
     // Init sensor structs
     throttle_init(&throttle_sensor);
-    steering_angle_init(&steering_sensor);
+  /* USER CODE END 2 */
 
-    /* USER CODE END 2 */
+  /* Initialize leds */
+  BSP_LED_Init(LED_GREEN);
 
-    /* Initialize leds */
-    BSP_LED_Init(LED_GREEN);
+  /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
+  BspCOMInit.BaudRate   = 115200;
+  BspCOMInit.WordLength = COM_WORDLENGTH_8B;
+  BspCOMInit.StopBits   = COM_STOPBITS_1;
+  BspCOMInit.Parity     = COM_PARITY_NONE;
+  BspCOMInit.HwFlowCtl  = COM_HWCONTROL_NONE;
+  if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
+  {
+    Error_Handler();
+  }
 
-    /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
-    BspCOMInit.BaudRate   = 115200;
-    BspCOMInit.WordLength = COM_WORDLENGTH_8B;
-    BspCOMInit.StopBits   = COM_STOPBITS_1;
-    BspCOMInit.Parity     = COM_PARITY_NONE;
-    BspCOMInit.HwFlowCtl  = COM_HWCONTROL_NONE;
-    if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
-    {
-        Error_Handler();
-    }
-
-    /* Infinite loop */
-    /* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
     // TODO: Maybe move up the part before loop to USER CODE 2
     // Turn on the inverter
     // TODO: Send only once (?)
@@ -557,7 +509,7 @@ int main(void)
 
         // Display
         if (time_now - time_last_5ms > 5) {
-            send_throttle_steering_display(&throttle_sensor, &steering_sensor);
+            send_throttle_display(&throttle_sensor);
             time_last_5ms = time_now;  // update last time
         }
 
@@ -585,15 +537,11 @@ int main(void)
         // Other tasks
         if (adc_complete_flag) {
             // Get throttle
-            convert_adc_throttle(&throttle_sensor, raw_adc_values[0]);
-
-            // Get steering angle
-            float steering_value = (raw_adc_values[1]-3200)/4095.0f*110.0f;
-            steering_angle_avg(&steering_sensor, steering_value);
+            convert_adc_throttle(&throttle_sensor, raw_adc_value);
 
             // Reset ADC input
             adc_complete_flag = 0;
-            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) raw_adc_values, 2);
+            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
         }
 
         // TODO: uncomment the function calls below (?)
@@ -604,7 +552,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     }
-    /* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
@@ -613,44 +561,44 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-    /** Configure the main internal regulator output voltage
-    */
-    HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Configure the main internal regulator output voltage
+  */
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /** Initializes the RCC Oscillators according to the specified parameters
-    * in the RCC_OscInitTypeDef structure.
-    */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-    RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
-    RCC_OscInitStruct.PLL.PLLN = 8;
-    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV8;
-    RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-    RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
-    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    {
-        Error_Handler();
-    }
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
+  RCC_OscInitStruct.PLL.PLLN = 8;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV8;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-    /** Initializes the CPU, AHB and APB buses clocks
-    */
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-    {
-        Error_Handler();
-    }
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
@@ -660,63 +608,56 @@ void SystemClock_Config(void)
   */
 static void MX_ADC2_Init(void)
 {
-    /* USER CODE BEGIN ADC2_Init 0 */
 
-    /* USER CODE END ADC2_Init 0 */
+  /* USER CODE BEGIN ADC2_Init 0 */
 
-    ADC_ChannelConfTypeDef sConfig = {0};
+  /* USER CODE END ADC2_Init 0 */
 
-    /* USER CODE BEGIN ADC2_Init 1 */
+  ADC_ChannelConfTypeDef sConfig = {0};
 
-    /* USER CODE END ADC2_Init 1 */
+  /* USER CODE BEGIN ADC2_Init 1 */
 
-    /** Common config
-    */
-    hadc2.Instance = ADC2;
-    hadc2.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
-    hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-    hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-    hadc2.Init.GainCompensation = 0;
-    hadc2.Init.ScanConvMode = ADC_SCAN_ENABLE;
-    hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-    hadc2.Init.LowPowerAutoWait = ENABLE;
-    hadc2.Init.ContinuousConvMode = DISABLE;
-    hadc2.Init.NbrOfConversion = 2;
-    hadc2.Init.DiscontinuousConvMode = DISABLE;
-    hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-    hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-    hadc2.Init.DMAContinuousRequests = DISABLE;
-    hadc2.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc2.Init.OversamplingMode = DISABLE;
-    if (HAL_ADC_Init(&hadc2) != HAL_OK)
-    {
+  /* USER CODE END ADC2_Init 1 */
+
+  /** Common config
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.GainCompensation = 0;
+  hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc2.Init.LowPowerAutoWait = ENABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc2.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
     Error_Handler();
-    }
+  }
 
-    /** Configure Regular Channel
-    */
-    sConfig.Channel = ADC_CHANNEL_4;
-    sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-    sConfig.SingleDiff = ADC_SINGLE_ENDED;
-    sConfig.OffsetNumber = ADC_OFFSET_NONE;
-    sConfig.Offset = 0;
-    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-    {
-        Error_Handler();
-    }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
 
-    /** Configure Regular Channel
-    */
-    sConfig.Channel = ADC_CHANNEL_1;
-    sConfig.Rank = ADC_REGULAR_RANK_2;
-    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-    {
-        Error_Handler();
-    }
-    /* USER CODE BEGIN ADC2_Init 2 */
+  /* USER CODE END ADC2_Init 2 */
 
-    /* USER CODE END ADC2_Init 2 */
 }
 
 /**
@@ -726,36 +667,37 @@ static void MX_ADC2_Init(void)
   */
 static void MX_FDCAN1_Init(void)
 {
-    /* USER CODE BEGIN FDCAN1_Init 0 */
 
-    /* USER CODE END FDCAN1_Init 0 */
+  /* USER CODE BEGIN FDCAN1_Init 0 */
 
-    /* USER CODE BEGIN FDCAN1_Init 1 */
+  /* USER CODE END FDCAN1_Init 0 */
 
-    /* USER CODE END FDCAN1_Init 1 */
-    hfdcan1.Instance = FDCAN1;
-    hfdcan1.Init.ClockDivider = FDCAN_CLOCK_DIV1;
-    hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-    hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
-    hfdcan1.Init.AutoRetransmission = DISABLE;
-    hfdcan1.Init.TransmitPause = DISABLE;
-    hfdcan1.Init.ProtocolException = DISABLE;
-    hfdcan1.Init.NominalPrescaler = 16;
-    hfdcan1.Init.NominalSyncJumpWidth = 1;
-    hfdcan1.Init.NominalTimeSeg1 = 13;
-    hfdcan1.Init.NominalTimeSeg2 = 2;
-    hfdcan1.Init.DataPrescaler = 1;
-    hfdcan1.Init.DataSyncJumpWidth = 1;
-    hfdcan1.Init.DataTimeSeg1 = 1;
-    hfdcan1.Init.DataTimeSeg2 = 1;
-    hfdcan1.Init.StdFiltersNbr = 0;
-    hfdcan1.Init.ExtFiltersNbr = 0;
-    hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
-    if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
-    {
-        Error_Handler();
-    }
-    /* USER CODE BEGIN FDCAN1_Init 2 */
+  /* USER CODE BEGIN FDCAN1_Init 1 */
+
+  /* USER CODE END FDCAN1_Init 1 */
+  hfdcan1.Instance = FDCAN1;
+  hfdcan1.Init.ClockDivider = FDCAN_CLOCK_DIV1;
+  hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
+  hfdcan1.Init.AutoRetransmission = DISABLE;
+  hfdcan1.Init.TransmitPause = DISABLE;
+  hfdcan1.Init.ProtocolException = DISABLE;
+  hfdcan1.Init.NominalPrescaler = 16;
+  hfdcan1.Init.NominalSyncJumpWidth = 1;
+  hfdcan1.Init.NominalTimeSeg1 = 13;
+  hfdcan1.Init.NominalTimeSeg2 = 2;
+  hfdcan1.Init.DataPrescaler = 1;
+  hfdcan1.Init.DataSyncJumpWidth = 1;
+  hfdcan1.Init.DataTimeSeg1 = 1;
+  hfdcan1.Init.DataTimeSeg2 = 1;
+  hfdcan1.Init.StdFiltersNbr = 0;
+  hfdcan1.Init.ExtFiltersNbr = 0;
+  hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
+  if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN FDCAN1_Init 2 */
     tx_header.Identifier = 0x301;  // no need to init address yet
     tx_header.IdType = FDCAN_STANDARD_ID;
     tx_header.TxFrameType = FDCAN_DATA_FRAME;
@@ -765,7 +707,8 @@ static void MX_FDCAN1_Init(void)
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
     tx_header.MessageMarker = 0;
-    /* USER CODE END FDCAN1_Init 2 */
+  /* USER CODE END FDCAN1_Init 2 */
+
 }
 
 /**
@@ -773,14 +716,16 @@ static void MX_FDCAN1_Init(void)
   */
 static void MX_DMA_Init(void)
 {
-    /* DMA controller clock enable */
-    __HAL_RCC_DMAMUX1_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
 
-    /* DMA interrupt init */
-    /* DMA1_Channel1_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
 }
 
 /**
@@ -790,44 +735,44 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    /* USER CODE BEGIN MX_GPIO_Init_1 */
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
 
-    /* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
-    /* GPIO Ports Clock Enable */
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    /*Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
 
-    /*Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_8, GPIO_PIN_RESET);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_3, GPIO_PIN_RESET);
 
-    /*Configure GPIO pins : PA4 PA5 PA6 */
-    GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /*Configure GPIO pins : PA4 PA5 PA6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /*Configure GPIO pins : PB0 PB3 PB8 */
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_8;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pins : PB0 PB3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /*Configure GPIO pin : PA8 */
-    GPIO_InitStruct.Pin = GPIO_PIN_8;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
 
-    /* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -867,13 +812,13 @@ static void MX_GPIO_Init(void)
   */
 void Error_Handler(void)
 {
-    /* USER CODE BEGIN Error_Handler_Debug */
+  /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
     while (1)
     {
     }
-    /* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT
 /**
@@ -885,9 +830,9 @@ void Error_Handler(void)
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-    /* USER CODE BEGIN 6 */
+  /* USER CODE BEGIN 6 */
     /* User can add his own implementation to report the file name and line number,
         ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-    /* USER CODE END 6 */
+  /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

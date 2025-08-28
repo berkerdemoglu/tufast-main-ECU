@@ -31,8 +31,6 @@ extern "C" {
 
 #include "stm32g4xx_nucleo.h"
 #include <stdio.h>
-#include <stdbool.h>
-
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -68,18 +66,18 @@ enum MotoState {
 // Communication state with the charger
 enum ChargerCommState {
 	CHARGER_ON 				= 1,
-	VOUT_SET 				= 2,
-	IOUT_SET 				= 3,
-	FAULT_STATUS 			= 4,
+	CHARGER_VOUT_SET 		= 2,
+	CHARGER_IOUT_SET 		= 3,
+	CHARGER_FAULT_STATUS 	= 4,
 	CHARGER_OFF 			= 5
 };
 
 // Communication state with the BMS
 enum BMSCommState {
 	BMS_ON 					= 1,
-	SLEEP 					= 2,
-	VOLTAGE 				= 3,
-	CURRENT 				= 4
+	BMS_SLEEP 				= 2,
+	BMS_VOLTAGE 			= 3,
+	BMS_CURRENT 			= 4
 };
 
 // Racing-related modes and states
@@ -116,18 +114,6 @@ struct Throttle {
 	uint8_t throttle_activated;  // flag
 };
 
-// Steering angle
-// TODO: Some parts of this struct are not used
-#define STEERING_BUFFER_SIZE 32
-struct SteeringAngle {
-	can_message_four steering_value;
-	float steering_output;
-
-	float adc_sum;
-	float buffer[STEERING_BUFFER_SIZE];
-	uint8_t buffer_index;
-};
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -154,7 +140,7 @@ void send_velocity_ref_inverter(struct Throttle* th);
 
 // Display CAN transmit functions
 void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
-void send_throttle_steering_display(struct Throttle* th, struct SteeringAngle* sa);
+void send_throttle_display(struct Throttle* th);
 void send_race_mode_display(struct RaceState* rs);
 void send_rain_state_display(struct RaceState* rs);
 
@@ -162,22 +148,24 @@ void send_rain_state_display(struct RaceState* rs);
 void throttle_init(struct Throttle* thr);
 void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 
-// Steering angle functions
-void steering_angle_init(struct SteeringAngle* sa);
-void steering_angle_avg(struct SteeringAngle* sa, float value);
-
 // BMS, Charger, Output Pins related
-void BMS_Charger(void);
-void CAN_Charger(uint8_t value);
+void handle_BMS_CAN(void);
+void handle_charger_CAN(uint8_t value);
 
-void fault_pin_service(void);
 /*
-Sets the pin state (SET or RESET) for the output pins.
-*/
+ * Checks if there is an error with the relay pin (?, TODO: rewrite)
+ */
+void fault_pin_service(void);
+
+/*
+ * Sets the pin state (SET or RESET) for the output pins.
+ */
 void set_output_pins(
     GPIO_PinState o1, GPIO_PinState o2, 
     GPIO_PinState o3, GPIO_PinState o4
 );
+
+void check_moto_state(uint8_t precharge_time_delta);
 
 /* USER CODE END EFP */
 
