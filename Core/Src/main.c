@@ -88,7 +88,7 @@ static void MX_FDCAN1_Init(void);
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET)
     {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  // TODO: remove light flashing in final  
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  //  light flashing to see if receives
 
         // Retrieve Rx messages from RX FIFO0
         if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rx_header, rx_data.bytes) != HAL_OK)
@@ -111,7 +111,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
                 case 0x301:
                     // Read which button was pressed
                     button_data_test.int_val = rx_data.int_val;
-                    handle_button_press(&race_state, rx_data.bytes[0]);
+                    handle_button_press(&race_state, rx_data.bytes[0]);// we pass the adress of race_state
                     break;
                 // BMS
                 case 0x341:
@@ -135,7 +135,7 @@ void fault_pin_service(void) {
     }
     if (HAL_GPIO_ReadPin(PORT_RELAY_STATE, PIN_RELAY_STATE) == GPIO_PIN_RESET) {
         if (moto_state == STATE_ERROR) {
-            moto_state = STATE_NORMAL;
+            moto_state = STATE_PRECHARGE;
         }
     }
 }
@@ -276,6 +276,8 @@ void send_rain_state_display(struct RaceState* rs) {
     send_CAN_message(0x302, &tx_data);
 }
 
+// TODO: send_state_mode_display
+
 // Throttle functions
 void throttle_init(struct Throttle* thr) {
     thr->adc_sum = 0;
@@ -352,7 +354,7 @@ void handle_charger_CAN(uint8_t value) {
     } else if (charger_comm_state == CHARGER_VOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
         tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 0x58;// change the value to the one we need
+        tx_data_four.bytes[2] = 0x58;// TODO: change the value to the one we need
         tx_data_four.bytes[3] = 0x1B; // frame format!
     } else if (charger_comm_state == CHARGER_IOUT_SET) {
         tx_data_four.bytes[0] = 0x20;
@@ -483,7 +485,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
     // TODO: Maybe move up the part before loop to USER CODE 2
     // Turn on the inverter
-    // TODO: Send only once (?)
+    // TODO: Send only once (?) no Hal delay! just send the On once or in the while loop
     int time_sum = 0;
     while (time_sum < 5000) {
         send_turn_on_inverter();
@@ -503,6 +505,9 @@ int main(void)
     uint32_t time_last_200ms = HAL_GetTick();
     uint32_t time_now;
 
+    /************************************************
+     * SECTION : While loop
+     ***********************************************/
     while (1)
     {
         time_now = HAL_GetTick();
@@ -532,7 +537,7 @@ int main(void)
             check_moto_state(time_now - time_last_200ms);
 
             time_last_200ms = time_now;  // update last time
-        }
+        } // todo: Clean it and make a function
 
         // Other tasks
         if (adc_complete_flag) {
@@ -542,7 +547,7 @@ int main(void)
             // Reset ADC input
             adc_complete_flag = 0;
             HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
-        }
+        } //todo: Clean it and make a function
 
         // TODO: uncomment the function calls below (?)
         // state of the motorcycle
