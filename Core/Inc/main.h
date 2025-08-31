@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.h
+ * @brief          : Header for main.c file.
+ *                   This file contains the common defines of the application.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
@@ -28,9 +28,12 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32g4xx_hal.h"
-
 #include "stm32g4xx_nucleo.h"
 #include <stdio.h>
+
+#include "defines.h"
+#include "motostruct.h"
+#include "CAN_functions.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -39,80 +42,6 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef union {
-    float float_val;
-    uint32_t int_val;
-    uint8_t bytes[4];
-} can_message_four;
-
-typedef union {
-    uint64_t int_val;
-    double double_val;
-    struct {
-        can_message_four first;
-        can_message_four second;
-    };
-    uint8_t bytes[8];
-} can_message_eight;
-
-// The actual state of the motorcycle
-enum MotoState {
-    STATE_PRECHARGE 		= 0,
-    STATE_NORMAL    		= 1,
-    STATE_CHARGE    		= 2,
-    STATE_ERROR     		= 3
-};
-
-// Communication state with the charger
-enum ChargerCommState {
-	CHARGER_ON 				= 1,
-	CHARGER_VOUT_SET 		= 2,
-	CHARGER_IOUT_SET 		= 3,
-	CHARGER_FAULT_STATUS 	= 4,
-	CHARGER_OFF 			= 5
-};
-
-// Communication state with the BMS
-enum BMSCommState {
-	BMS_ON 					= 1,
-	BMS_SLEEP 				= 2,
-	BMS_VOLTAGE 			= 3,
-	BMS_CURRENT 			= 4
-};
-
-// Racing-related modes and states
-enum RaceMode {
-	MODE_PIT_LIMITER 		= 1,
-	MODE_RACE 				= 2,
-	MODE_ECO 				= 3,
-	MODE_SENSOR_READING 	= 4,
-	MODE_GYMKHANA 			= 5
-};
-
-enum RainState {
-	STATE_NO_RAIN 			= 0,
-	STATE_RAIN 				= 1
-};
-
-struct RaceState {
-	enum RainState rain_state;
-	enum RaceMode race_mode;
-};
-
-
-// Throttle
-#define THROTTLE_BUFFER_SIZE 32
-struct Throttle {
-	float adc_sum;
-	float buffer[THROTTLE_BUFFER_SIZE];
-	uint8_t buffer_index;
-
-	can_message_four throttle_value;
-	float hysteresis;
-	float hysteresis_min;
-
-	uint8_t throttle_activated;  // flag
-};
 
 /* USER CODE END ET */
 
@@ -130,27 +59,6 @@ struct Throttle {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void race_state_init(struct RaceState* rs);
-void handle_button_press(struct RaceState* rs, uint8_t button_index);
-
-void send_can_message_four(uint32_t address, can_message_four* msg);
-void send_can_message_eight(uint32_t address, can_message_eight* msg);
-void send_turn_on_inverter(void);
-void send_velocity_ref_inverter(struct Throttle* th);
-
-// Display CAN transmit functions
-void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
-void send_throttle_display(struct Throttle* th);
-void send_race_mode_display(struct RaceState* rs);
-void send_rain_state_display(struct RaceState* rs);
-
-// Throttle functions
-void throttle_init(struct Throttle* thr);
-void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
-
-// BMS, Charger, Output Pins related
-void handle_BMS_CAN(void);
-void handle_charger_CAN(uint8_t value);
 
 /*
  * Checks if there is an error with the relay pin (?, TODO: rewrite)
@@ -160,41 +68,41 @@ void fault_pin_service(void);
 /*
  * Sets the pin state (SET or RESET) for the output pins.
  */
-void set_output_pins(
-    GPIO_PinState o1, GPIO_PinState o2, 
-    GPIO_PinState o3, GPIO_PinState o4
-);
 
 void check_moto_state(uint8_t precharge_time_delta);
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define ESDB2_Pin GPIO_PIN_0
+#define ESDB2_GPIO_Port GPIOA
+#define ESDB_Pin GPIO_PIN_1
+#define ESDB_GPIO_Port GPIOA
+#define Normal_Pin GPIO_PIN_4
+#define Normal_GPIO_Port GPIOA
+#define Charge_Led_Pin GPIO_PIN_5
+#define Charge_Led_GPIO_Port GPIOA
+#define Error_LED_Pin GPIO_PIN_6
+#define Error_LED_GPIO_Port GPIOA
+#define Throttle_Pin GPIO_PIN_7
+#define Throttle_GPIO_Port GPIOA
+#define Precharge_Pin GPIO_PIN_0
+#define Precharge_GPIO_Port GPIOB
+#define Sensata_Aux_Pin GPIO_PIN_8
+#define Sensata_Aux_GPIO_Port GPIOA
+#define Green_LED_Pin GPIO_PIN_9
+#define Green_LED_GPIO_Port GPIOA
+#define Not_safe_Pin GPIO_PIN_10
+#define Not_safe_GPIO_Port GPIOA
+#define Debug_LED_Pin GPIO_PIN_3
+#define Debug_LED_GPIO_Port GPIOB
+#define LVMS_Pin GPIO_PIN_4
+#define LVMS_GPIO_Port GPIOB
+#define TSMS_Pin GPIO_PIN_5
+#define TSMS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define CHARGER_RXID  		0x000C0100
-#define CHARGER_TXID 		0x000C0000
-#define BMS_RXID  			0x232
 
-#define PORT_RELAY_STATE  	GPIOA
-#define PIN_RELAY_STATE  	GPIO_PIN_8
-
-#define PORT_PRECHARGE  	GPIOB
-#define PIN_PRECHARGE  		GPIO_PIN_0 // not connected to LED
-
-#define PORT_NORMAL  		GPIOA
-#define PIN_NORMAL   		GPIO_PIN_4
-
-#define PORT_CHARGE  		GPIOA
-#define PIN_CHARGE   		GPIO_PIN_5
-
-#define PORT_ERROR  		GPIOA
-#define PIN_ERROR   		GPIO_PIN_6
-
-// The macros below are to be used in the float convert function for the display
-#define DECIMAL_POINT_0 1
-#define DECIMAL_POINT_1 10
-#define DECIMAL_POINT_2 100
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
