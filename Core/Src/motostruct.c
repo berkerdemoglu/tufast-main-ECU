@@ -48,3 +48,58 @@ void buton_moto_init(struct ButonMoto* bm) {
     bm->TSMS = 0;
     bm->LVMS = 0;
 }
+
+void handle_button_press(struct RaceState* rs, uint8_t button_index) {
+    if (button_index == 1) {
+        // Rain state update, green button
+        // TODO: possibly replace with a simple bit inversion
+        if (rs->rain_state == STATE_NO_RAIN) {
+            rs->rain_state = STATE_RAIN;
+        } else {  // rs->rain_state == STATE_RAIN
+            rs->rain_state = STATE_NO_RAIN;
+            // Turn off rearlight
+            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+        }
+
+        // Send rain state update message to display
+        //    send_rain_state_display(rs, &tx_header, &hfdcan1);
+    } else {
+        // Race mode update
+        switch (button_index) {
+            // TODO: Maybe use an enum for the button indices and names
+            case 2:  // White
+                if (rs->race_mode == MODE_GYMKHANA) {
+                    rs->race_mode = MODE_RACE;
+                } else {
+                    rs->race_mode = MODE_GYMKHANA;
+                }
+                break;
+            case 3:  // Black
+                if (rs->race_mode == MODE_ECO) {
+                    rs->race_mode = MODE_RACE;
+                } else {
+                    rs->race_mode = MODE_ECO;
+                }
+                break;
+            case 4:  // Yellow
+                if (rs->race_mode == MODE_SENSOR_READING) {
+                    rs->race_mode = MODE_RACE;
+                } else {
+                    rs->race_mode = MODE_SENSOR_READING;
+                }
+                break;
+            case 5:  // Blue
+                if (rs->race_mode == MODE_PIT_LIMITER) {
+                    rs->race_mode = MODE_RACE;
+                } else {
+                    rs->race_mode = MODE_PIT_LIMITER;
+                }
+                break;
+        }
+
+        // Send race mode update message to display
+        // send_race_mode_display(rs, &tx_header, &hfdcan1);
+    }
+}
+
+// TODO: Update tx_header every time

@@ -108,9 +108,9 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     break;
                     // Display
                 case 0x301:
-                    // Read which button was pressed
-                    button_data_test.int_val = rx_data.int_val;
-                    handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
+                    // Read which button was pressed todo: reput it afterwards
+                    // button_data_test.int_val = rx_data.int_val;
+                    //  handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
                     break;
                     // BMS
                 case 0x341:
@@ -129,198 +129,12 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
 
 // Race state
 
-void handle_button_press(struct RaceState* rs, uint8_t button_index) {
-    if (button_index == 1) {
-        // Rain state update, green button
-        // TODO: possibly replace with a simple bit inversion
-        if (rs->rain_state == STATE_NO_RAIN) {
-            rs->rain_state = STATE_RAIN;
-        } else {  // rs->rain_state == STATE_RAIN
-            rs->rain_state = STATE_NO_RAIN;
-            // Turn off rearlight
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-        }
-
-        // Send rain state update message to display
-        send_rain_state_display(rs, &tx_header, &hfdcan1);
-    } else {
-        // Race mode update
-        switch (button_index) {
-            // TODO: Maybe use an enum for the button indices and names
-            case 2:  // White
-                if (rs->race_mode == MODE_GYMKHANA) {
-                    rs->race_mode = MODE_RACE;
-                } else {
-                    rs->race_mode = MODE_GYMKHANA;
-                }
-                break;
-            case 3:  // Black
-                if (rs->race_mode == MODE_ECO) {
-                    rs->race_mode = MODE_RACE;
-                } else {
-                    rs->race_mode = MODE_ECO;
-                }
-                break;
-            case 4:  // Yellow
-                if (rs->race_mode == MODE_SENSOR_READING) {
-                    rs->race_mode = MODE_RACE;
-                } else {
-                    rs->race_mode = MODE_SENSOR_READING;
-                }
-                break;
-            case 5:  // Blue
-                if (rs->race_mode == MODE_PIT_LIMITER) {
-                    rs->race_mode = MODE_RACE;
-                } else {
-                    rs->race_mode = MODE_PIT_LIMITER;
-                }
-                break;
-        }
-
-        // Send race mode update message to display
-        send_race_mode_display(rs, &tx_header, &hfdcan1);
-    }
-}
-
-// TODO: Update tx_header every time
-void send_CAN_message(uint32_t address, can_message_eight* msg) {
-// Update ID of the transmit header
-    tx_header.Identifier = address;
-
-    if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, msg->bytes) != HAL_OK) {
-        Error_Handler();
-    }
-}
-void send_CAN_message_four(uint32_t address, can_message_four* msg) {
-// Update ID of the transmit header
-    tx_header.Identifier = address;
-    tx_header.DataLength = FDCAN_DLC_BYTES_4;
-
-    if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, msg->bytes) != HAL_OK) {
-        Error_Handler();
-    }
-    tx_header.DataLength = FDCAN_DLC_BYTES_8;
-}
-
-void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-// Sends an ON message to the inverter
-    send_CAN_message(0x201, &inverter_on_msg);
-}
-
-void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-// Check for safe throttle (and RPM) values
-    if (throttle_sensor.throttle_value.float_val <= 100.0f) {
-        tx_data.first.int_val = 0;
-        tx_data.second.float_val = 1 * throttle_sensor.throttle_value.float_val;
-        send_CAN_message(0x301, &tx_data);
-
-        send_turn_on_inverter(tx_header, hfdcan1);
-    }
-}
-
-// Display transmission functions
-void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-// Send throttle in the first 4 bytes
-    th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
-    convert_float_display(&th->throttle_value, &tx_data.first, DECIMAL_POINT_2);
-
-    tx_data.second.int_val = 0;
-    send_CAN_message(0x102, &tx_data);
-}
-
-void send_race_mode_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-    tx_data.int_val = 0;  // reset transmit data
-    tx_data.bytes[0] = rs->race_mode;
-    send_CAN_message(0x202, &tx_data);
-}
-
-void send_rain_state_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-    tx_data.int_val = 0;  // reset transmit data
-    tx_data.bytes[0] = rs->rain_state;
-    send_CAN_message(0x302, &tx_data);
-}
-
 // TODO: send_state_mode_display
 
 // ADC functions
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
     adc_complete_flag = 1;
 }
-
-// BMS and Charger functions
-void handle_charger_CAN(uint8_t value, can_message_four* tx_data_four, FDCAN_TxHeaderTypeDef* tx_header,
-        enum ChargerCommState* charger_comm_state) {
-    if (*charger_comm_state == CHARGER_OFF) {
-        tx_data_four->bytes[0] = 0;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0;
-        tx_data_four->bytes[3] = 0;
-    } else if (*charger_comm_state == CHARGER_ON) {
-        tx_data_four->bytes[0] = 0;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 1;
-        tx_data_four->bytes[3] = 0;
-    } else if (*charger_comm_state == CHARGER_VOUT_SET) {
-        tx_data_four->bytes[0] = 0x20;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0x58;  // TODO: change the value to the one we need
-        tx_data_four->bytes[3] = 0x1B; // frame format!
-    } else if (*charger_comm_state == CHARGER_IOUT_SET) {
-        tx_data_four->bytes[0] = 0x20;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0x10;
-        tx_data_four->bytes[3] = 0x27;
-    } else {  // charger_comm_state == FAULT_STATUS
-        // TODO: different action here
-    }
-    tx_header->IdType = FDCAN_EXTENDED_ID;
-    send_CAN_message_four(CHARGER_RXID, tx_data_four);
-    tx_header->IdType = FDCAN_STANDARD_ID;
-}
-
-void handle_BMS_CAN(void) {
-    if (bms_comm_state == BMS_SLEEP) {
-        tx_data.bytes[0] = 0x20;
-        tx_data.bytes[1] = 0;
-        tx_data.bytes[2] = 0x10;
-        tx_data.bytes[3] = 0x27;
-        tx_data.bytes[4] = 0x20;
-        tx_data.bytes[5] = 0;
-        tx_data.bytes[6] = 0x10;
-        tx_data.bytes[7] = 0x27;
-    } else if (bms_comm_state == BMS_ON) {
-        tx_data.bytes[0] = 0x20;
-        tx_data.bytes[1] = 0;
-        tx_data.bytes[2] = 0x10;
-        tx_data.bytes[3] = 0x27;
-        tx_data.bytes[4] = 0x20;
-        tx_data.bytes[5] = 0;
-        tx_data.bytes[6] = 0x10;
-        tx_data.bytes[7] = 0x27;
-    }
-// TODO: this function probably needs more work!
-    send_CAN_message(BMS_RXID, &tx_data);
-}
-
-void check_moto_state(uint8_t safe_time_delta) {
-    switch (moto_state) {
-        case STATE_SAFE:
-            if (safe_time_delta > 200) {  // toggle every 200 ms
-                HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
-            }
-            break;
-        case STATE_ENGAGED:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
-            break;
-        case STATE_CHARGE:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
-            break;
-        case STATE_ERROR:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
-            break;
-    }
-}
-;
 
 /* USER CODE END 0 */
 
@@ -394,8 +208,8 @@ int main(void) {
     }
 
 // Send initial Race Mode and Rain State to display
-    send_race_mode_display(&race_state, &tx_header, &hfdcan1);
-    send_rain_state_display(&race_state, &tx_header, &hfdcan1);
+    //   send_race_mode_display(&race_state, &tx_header, &hfdcan1);
+    //   send_rain_state_display(&race_state, &tx_header, &hfdcan1);
 
 // Timers
     uint32_t time_last_5ms = HAL_GetTick();
@@ -411,13 +225,13 @@ int main(void) {
 
         // Display
         if (time_now - time_last_5ms > 5) {
-            send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
+            //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
             time_last_5ms = time_now;  // update last time
         }
 
         // Inverter
         if (time_now - time_last_50ms > 50) {
-            send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
+            //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
             time_last_50ms = time_now;  // update last time
         }
 
@@ -431,7 +245,7 @@ int main(void) {
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
             }
 
-            check_moto_state(time_now - time_last_200ms);
+            check_moto_state(time_now - time_last_200ms, &moto_state);
 
             time_last_200ms = time_now;  // update last time
         } // todo: Clean it and make a function
@@ -718,7 +532,7 @@ void Error_Handler(void) {
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
     while (1) {
-    }
+    }  // error Handler
     /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT

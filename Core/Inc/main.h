@@ -69,8 +69,6 @@ void fault_pin_service(void);
  * Sets the pin state (SET or RESET) for the output pins.
  */
 
-void check_moto_state(uint8_t precharge_time_delta);
-
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

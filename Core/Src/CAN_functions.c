@@ -65,3 +65,146 @@ void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
         th->throttle_value.float_val = 0.0f;
     }
 }
+
+void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state) {
+    switch (*moto_state) {
+        case STATE_SAFE:
+            if (safe_time_delta > 200) {  // toggle every 200 ms
+                HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
+            }
+            break;
+        case STATE_ENGAGED:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
+            break;
+        case STATE_CHARGE:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
+            break;
+        case STATE_ERROR:
+            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
+            break;
+    }
+}
+
+void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1) {
+// Update ID of the transmit header
+    tx_header->Identifier = address;
+
+    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, tx_header, msg->bytes) != HAL_OK) {
+        __disable_irq();
+        while (1) {
+        }  // error Handler
+    }
+}
+void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1) {
+// Update ID of the transmit header
+    tx_header->Identifier = address;
+    tx_header->DataLength = FDCAN_DLC_BYTES_4;
+
+    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, tx_header, msg->bytes) != HAL_OK) {
+        __disable_irq();
+        while (1) {
+        }  // error Handler
+    }
+    tx_header->DataLength = FDCAN_DLC_BYTES_8;
+}
+void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
+// Sends an ON message to the inverter
+    can_message_eight inverter_on_msg = { .int_val = 0x0101010101010101 };
+
+    send_CAN_message(0x201, &inverter_on_msg, tx_header, hfdcan1);
+}
+
+// BMS and Charger functions
+void handle_charger_CAN(uint8_t value, can_message_four* tx_data_four, FDCAN_TxHeaderTypeDef* tx_header,
+        enum ChargerCommState* charger_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
+    if (*charger_comm_state == CHARGER_OFF) {
+        tx_data_four->bytes[0] = 0;
+        tx_data_four->bytes[1] = 0;
+        tx_data_four->bytes[2] = 0;
+        tx_data_four->bytes[3] = 0;
+    } else if (*charger_comm_state == CHARGER_ON) {
+        tx_data_four->bytes[0] = 0;
+        tx_data_four->bytes[1] = 0;
+        tx_data_four->bytes[2] = 1;
+        tx_data_four->bytes[3] = 0;
+    } else if (*charger_comm_state == CHARGER_VOUT_SET) {
+        tx_data_four->bytes[0] = 0x20;
+        tx_data_four->bytes[1] = 0;
+        tx_data_four->bytes[2] = 0x58;  // TODO: change the value to the one we need
+        tx_data_four->bytes[3] = 0x1B; // frame format!
+    } else if (*charger_comm_state == CHARGER_IOUT_SET) {
+        tx_data_four->bytes[0] = 0x20;
+        tx_data_four->bytes[1] = 0;
+        tx_data_four->bytes[2] = 0x10;
+        tx_data_four->bytes[3] = 0x27;
+    } else {  // charger_comm_state == FAULT_STATUS
+        // TODO: different action here
+    }
+    tx_header->IdType = FDCAN_EXTENDED_ID;
+    send_CAN_message_four(CHARGER_RXID, tx_data_four, tx_header, hfdcan1);
+    tx_header->IdType = FDCAN_STANDARD_ID;
+}
+
+void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTypeDef* tx_header,
+        enum BMSCommState* bms_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
+    if (*bms_comm_state == BMS_SLEEP) {
+        tx_data->bytes[0] = 0x20;
+        tx_data->bytes[1] = 0;
+        tx_data->bytes[2] = 0x10;
+        tx_data->bytes[3] = 0x27;
+        tx_data->bytes[4] = 0x20;
+        tx_data->bytes[5] = 0;
+        tx_data->bytes[6] = 0x10;
+        tx_data->bytes[7] = 0x27;
+    } else if (*bms_comm_state == BMS_ON) {
+        tx_data->bytes[0] = 0x20;
+        tx_data->bytes[1] = 0;
+        tx_data->bytes[2] = 0x10;
+        tx_data->bytes[3] = 0x27;
+        tx_data->bytes[4] = 0x20;
+        tx_data->bytes[5] = 0;
+        tx_data->bytes[6] = 0x10;
+        tx_data->bytes[7] = 0x27;
+    }
+// TODO: this function probably needs more work!
+    send_CAN_message(BMS_RXID, tx_data, tx_header, hfdcan1);
+}
+
+// Display transmission functions
+void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data) {
+// Send throttle in the first 4 bytes
+    th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
+    convert_float_display(&th->throttle_value, &tx_data->first, DECIMAL_POINT_2);
+
+    tx_data->second.int_val = 0;
+    send_CAN_message(0x102, tx_data, tx_header, hfdcan1);
+}
+
+void send_race_mode_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data) {
+    tx_data->int_val = 0;  // reset transmit data
+    tx_data->bytes[0] = rs->race_mode;
+    send_CAN_message(0x202, tx_data, tx_header, hfdcan1);
+}
+
+void send_rain_state_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data) {
+    tx_data->int_val = 0;  // reset transmit data
+    tx_data->bytes[0] = rs->rain_state;
+    send_CAN_message(0x302, tx_data, tx_header, hfdcan1);
+}
+
+void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data, struct Throttle* throttle_sensor) {
+// Check for safe throttle (and RPM) values
+    if (throttle_sensor->throttle_value.float_val <= 100.0f) {
+        tx_data->first.int_val = 0;
+        tx_data->second.float_val = 1 * throttle_sensor->throttle_value.float_val;
+        send_CAN_message(0x301, tx_data, tx_header, hfdcan1);
+
+        send_turn_on_inverter(tx_header, hfdcan1);
+    }
+}
