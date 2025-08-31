@@ -76,6 +76,7 @@ void handle_moto_discharge(enum MotoState* moto_state);
 void handle_moto_state(enum MotoState* moto_state);
 void set_output_pins(GPIO_PinState o1, GPIO_PinState o2, GPIO_PinState o3, GPIO_PinState o4);
 void race_state_init(struct RaceState* rs);
+void buton_moto_init(struct ButonMoto* bm);
 void handle_button_press(struct RaceState* rs, uint8_t button_index);
 
 #endif /* INC_MOTOSTRUCT_H_ */
