@@ -142,7 +142,7 @@ void handle_button_press(struct RaceState* rs, uint8_t button_index) {
         }
 
         // Send rain state update message to display
-        send_rain_state_display(rs);
+        send_rain_state_display(rs, &tx_header, &hfdcan1);
     } else {
         // Race mode update
         switch (button_index) {
@@ -178,13 +178,13 @@ void handle_button_press(struct RaceState* rs, uint8_t button_index) {
         }
 
         // Send race mode update message to display
-        send_race_mode_display(rs);
+        send_race_mode_display(rs, &tx_header, &hfdcan1);
     }
 }
 
 // TODO: Update tx_header every time
 void send_CAN_message(uint32_t address, can_message_eight* msg) {
-    // Update ID of the transmit header
+// Update ID of the transmit header
     tx_header.Identifier = address;
 
     if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, msg->bytes) != HAL_OK) {
@@ -192,7 +192,7 @@ void send_CAN_message(uint32_t address, can_message_eight* msg) {
     }
 }
 void send_CAN_message_four(uint32_t address, can_message_four* msg) {
-    // Update ID of the transmit header
+// Update ID of the transmit header
     tx_header.Identifier = address;
     tx_header.DataLength = FDCAN_DLC_BYTES_4;
 
@@ -202,25 +202,25 @@ void send_CAN_message_four(uint32_t address, can_message_four* msg) {
     tx_header.DataLength = FDCAN_DLC_BYTES_8;
 }
 
-void send_turn_on_inverter(void) {
-    // Sends an ON message to the inverter
+void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
+// Sends an ON message to the inverter
     send_CAN_message(0x201, &inverter_on_msg);
 }
 
-void send_velocity_ref_inverter(struct Throttle* th) {
-    // Check for safe throttle (and RPM) values
+void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
+// Check for safe throttle (and RPM) values
     if (throttle_sensor.throttle_value.float_val <= 100.0f) {
         tx_data.first.int_val = 0;
         tx_data.second.float_val = 1 * throttle_sensor.throttle_value.float_val;
         send_CAN_message(0x301, &tx_data);
 
-        send_turn_on_inverter();
+        send_turn_on_inverter(tx_header, hfdcan1);
     }
 }
 
 // Display transmission functions
-void send_throttle_display(struct Throttle* th) {
-    // Send throttle in the first 4 bytes
+void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
+// Send throttle in the first 4 bytes
     th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
     convert_float_display(&th->throttle_value, &tx_data.first, DECIMAL_POINT_2);
 
@@ -228,13 +228,13 @@ void send_throttle_display(struct Throttle* th) {
     send_CAN_message(0x102, &tx_data);
 }
 
-void send_race_mode_display(struct RaceState* rs) {
+void send_race_mode_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
     tx_data.int_val = 0;  // reset transmit data
     tx_data.bytes[0] = rs->race_mode;
     send_CAN_message(0x202, &tx_data);
 }
 
-void send_rain_state_display(struct RaceState* rs) {
+void send_rain_state_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
     tx_data.int_val = 0;  // reset transmit data
     tx_data.bytes[0] = rs->rain_state;
     send_CAN_message(0x302, &tx_data);
@@ -298,7 +298,7 @@ void handle_BMS_CAN(void) {
         tx_data.bytes[6] = 0x10;
         tx_data.bytes[7] = 0x27;
     }
-    // TODO: this function probably needs more work!
+// TODO: this function probably needs more work!
     send_CAN_message(BMS_RXID, &tx_data);
 }
 
@@ -356,10 +356,10 @@ int main(void) {
     MX_ADC2_Init();
     MX_FDCAN1_Init();
     /* USER CODE BEGIN 2 */
-    // Start ADC2
+// Start ADC2
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
 
-    // Start FDCAN1 and activate receive notifications
+// Start FDCAN1 and activate receive notifications
     if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK) {
         Error_Handler();
     }
@@ -367,10 +367,10 @@ int main(void) {
         Error_Handler();
     }
 
-    // Init race state
+// Init race state
     race_state_init(&race_state);
     buton_moto_init(&buton_moto);
-    // Init sensor structs
+// Init sensor structs
     throttle_init(&throttle_sensor);
     /* USER CODE END 2 */
 
@@ -381,23 +381,23 @@ int main(void) {
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
-    // TODO: Maybe move up the part before loop to USER CODE 2
-    // Turn on the inverter
-    // TODO: Send only once (?) no Hal delay! just send the On once or in the while loop
+// TODO: Maybe move up the part before loop to USER CODE 2
+// Turn on the inverter
+// TODO: Send only once (?) no Hal delay! just send the On once or in the while loop
     int time_sum = 0;
     while (time_sum < 5000) {
-        send_turn_on_inverter();
+        send_turn_on_inverter(&tx_header, &hfdcan1);
 
         // CAN messages at 50 ms interval
         time_sum += 50;
         HAL_Delay(50);
     }
 
-    // Send initial Race Mode and Rain State to display
-    send_race_mode_display(&race_state);
-    send_rain_state_display(&race_state);
+// Send initial Race Mode and Rain State to display
+    send_race_mode_display(&race_state, &tx_header, &hfdcan1);
+    send_rain_state_display(&race_state, &tx_header, &hfdcan1);
 
-    // Timers
+// Timers
     uint32_t time_last_5ms = HAL_GetTick();
     uint32_t time_last_50ms = HAL_GetTick();
     uint32_t time_last_200ms = HAL_GetTick();
@@ -411,13 +411,13 @@ int main(void) {
 
         // Display
         if (time_now - time_last_5ms > 5) {
-            send_throttle_display(&throttle_sensor);
+            send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
             time_last_5ms = time_now;  // update last time
         }
 
         // Inverter
         if (time_now - time_last_50ms > 50) {
-            send_velocity_ref_inverter(&throttle_sensor);
+            send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
             time_last_50ms = time_now;  // update last time
         }
 

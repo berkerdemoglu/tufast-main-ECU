@@ -45,14 +45,14 @@ struct Throttle {
 
 void send_can_message_four(uint32_t address, can_message_four* msg);
 void send_can_message_eight(uint32_t address, can_message_eight* msg);
-void send_turn_on_inverter(void);
-void send_velocity_ref_inverter(struct Throttle* th);
+void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
+void send_velocity_ref_inverter(struct Throttle*, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
 
 // Display CAN transmit functions
 void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
-void send_throttle_display(struct Throttle* th);
-void send_race_mode_display(struct RaceState* rs);
-void send_rain_state_display(struct RaceState* rs);
+void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
+void send_race_mode_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
+void send_rain_state_display(struct RaceState* rs, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
 
 // BMS, Charger, Output Pins related
 void handle_BMS_CAN(void);
