@@ -58,14 +58,6 @@ void send_throttle_display(struct Throttle* th,
     FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1,
     can_message_eight* tx_data);
-void send_race_mode_display(struct RaceState* rs,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data);
-void send_rain_state_display(struct RaceState* rs,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data);
 
 // BMS, Charger, Output Pins related
 void handle_BMS_CAN(uint8_t value,
@@ -83,7 +75,7 @@ void handle_charger_CAN(uint8_t value,
 void throttle_init(struct Throttle* thr);
 void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 
-void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state);
+void check_moto_state(enum MotoState moto_state);
 void send_CAN_message(uint32_t address,
     can_message_eight* msg,
     FDCAN_TxHeaderTypeDef* tx_header,

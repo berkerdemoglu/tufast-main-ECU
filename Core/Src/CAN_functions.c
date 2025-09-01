@@ -66,12 +66,10 @@ void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
     }
 }
 
-void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state) {
-    switch (*moto_state) {
+void check_moto_state(enum MotoState moto_state) {
+    switch (moto_state) {
         case STATE_SAFE:
-            if (safe_time_delta > 200) {  // toggle every 200 ms
-                HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
-            }
+            HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
             break;
         case STATE_ENGAGED:
             set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
@@ -194,24 +192,6 @@ void send_throttle_display(struct Throttle* th,
 
     tx_data->second.int_val = 0;
     send_CAN_message(0x102, tx_data, tx_header, hfdcan1);
-}
-
-void send_race_mode_display(struct RaceState* rs,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data) {
-    tx_data->int_val = 0;  // reset transmit data
-    tx_data->bytes[0] = rs->race_mode;
-    send_CAN_message(0x202, tx_data, tx_header, hfdcan1);
-}
-
-void send_rain_state_display(struct RaceState* rs,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data) {
-    tx_data->int_val = 0;  // reset transmit data
-    tx_data->bytes[0] = rs->rain_state;
-    send_CAN_message(0x302, tx_data, tx_header, hfdcan1);
 }
 
 void send_velocity_ref_inverter(struct Throttle* th,

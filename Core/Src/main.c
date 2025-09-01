@@ -258,44 +258,28 @@ int main(void) {
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1) {
-        time_now = HAL_GetTick();
-
+        // TODO: Remove this stuff below
         // Display
-        if (time_now - time_last_5ms > 5) {
-            //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
-            time_last_5ms = time_now;  // update last time
-        }
+//        if (time_now - time_last_5ms > 5) {
+//            //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
+//            time_last_5ms = time_now;  // update last time
+//        }
 
         // Inverter
-        if (time_now - time_last_50ms > 50) {
-            //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
-            time_last_50ms = time_now;  // update last time
-        }
-
-        // Rearlight
-        if (time_now - time_last_200ms > 200) {
-            if (race_state.rain_state == STATE_RAIN) {
-                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-            } else if (race_state.race_mode == MODE_RACE) {
-                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
-            } else {
-                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-            }
-
-            check_moto_state(time_now - time_last_200ms, &moto_state);
-
-            time_last_200ms = time_now;  // update last time
-        } // todo: Clean it and make a function
+//        if (time_now - time_last_50ms > 50) {
+//            //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
+//            time_last_50ms = time_now;  // update last time
+//        }
 
         // Other tasks
-        if (adc_complete_flag) {
-            // Get throttle
-            convert_adc_throttle(&throttle_sensor, raw_adc_value);
-
-            // Reset ADC input
-            adc_complete_flag = 0;
-            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
-        } //todo: Clean it and make a function
+//        if (adc_complete_flag) {
+//            // Get throttle
+//            convert_adc_throttle(&throttle_sensor, raw_adc_value);
+//
+//            // Reset ADC input
+//            adc_complete_flag = 0;
+//            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
+//        } //todo: Clean it and make a function
 
         // TODO: uncomment the function calls below (?)
         // state of the motorcycle
@@ -552,14 +536,34 @@ void StartDefaultTask(void const* argument) {
 /* sendStateDisplayCallback function */
 void sendStateDisplayCallback(void const* argument) {
     /* USER CODE BEGIN sendStateDisplayCallback */
+    // Write state data to TX data
+    tx_data.int_val = 0;
 
+    tx_data.bytes[0] = race_state.race_mode;
+    tx_data.bytes[1] = race_state.rain_state;
+    tx_data.bytes[2] = moto_state;
+    tx_data.bytes[3] = moto_charge;
+    tx_data.bytes[4] = charger_comm_state;
+    tx_data.bytes[5] = bms_comm_state;
+    tx_data.bytes[6] = button_moto;
+
+    // Send the message
+    send_CAN_message(0x202, &tx_data, &tx_header, &hfdcan1);
     /* USER CODE END sendStateDisplayCallback */
 }
 
 /* rearlightControlCallback function */
 void rearlightControlCallback(void const* argument) {
     /* USER CODE BEGIN rearlightControlCallback */
+    if (race_state.rain_state == STATE_RAIN) {
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+    } else if (race_state.race_mode == MODE_RACE) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+    }
 
+    check_moto_state(moto_state);
     /* USER CODE END rearlightControlCallback */
 }
 

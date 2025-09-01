@@ -34,6 +34,9 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "CAN_functions.h"
+#include "defines.h"
+#include "motostruct.h"
 
 /* USER CODE END Includes */
 
