@@ -51,6 +51,7 @@ FDCAN_HandleTypeDef hfdcan1;
 
 osThreadId defaultTaskHandle;
 osTimerId sendStateDisplayHandle;
+osTimerId rearlightControlHandle;
 /* USER CODE BEGIN PV */
 // Race state
 struct RaceState race_state;
@@ -58,7 +59,8 @@ enum MotoState moto_state = STATE_ERROR;
 enum ChargerCommState charger_comm_state = CHARGER_ON;
 enum BMSCommState bms_comm_state = BMS_SLEEP;
 enum MotoCharge moto_charge = STATE_PRECHARGE;
-struct ButonMoto buton_moto;
+uint8_t button_moto = 0;  // 0b0000XYZT - X: ESDB_one, Y: ESDB_two, Z: TSMS, T: LVMS
+
 // Sensors
 struct Throttle throttle_sensor;
 
@@ -86,6 +88,7 @@ static void MX_ADC2_Init(void);
 static void MX_FDCAN1_Init(void);
 void StartDefaultTask(void const* argument);
 void sendStateDisplayCallback(void const* argument);
+void rearlightControlCallback(void const* argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -173,10 +176,10 @@ int main(void) {
     MX_ADC2_Init();
     MX_FDCAN1_Init();
     /* USER CODE BEGIN 2 */
-// Start ADC2
+    // Start ADC2
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
 
-// Start FDCAN1 and activate receive notifications
+    // Start FDCAN1 and activate receive notifications
     if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK) {
         Error_Handler();
     }
@@ -184,11 +187,18 @@ int main(void) {
         Error_Handler();
     }
 
-// Init race state
+    // Init race state
     race_state_init(&race_state);
-    buton_moto_init(&buton_moto);
-// Init sensor structs
+
+    // Init sensor structs
     throttle_init(&throttle_sensor);
+
+    // Turn on the inverter
+    send_turn_on_inverter(&tx_header, &hfdcan1);
+
+    // Send initial Race Mode and Rain State to display
+    //   send_race_mode_display(&race_state, &tx_header, &hfdcan1);
+    //   send_rain_state_display(&race_state, &tx_header, &hfdcan1);
     /* USER CODE END 2 */
 
     /* USER CODE BEGIN RTOS_MUTEX */
@@ -204,8 +214,14 @@ int main(void) {
     osTimerDef(sendStateDisplay, sendStateDisplayCallback);
     sendStateDisplayHandle = osTimerCreate(osTimer(sendStateDisplay), osTimerPeriodic, NULL);
 
+    /* definition and creation of rearlightControl */
+    osTimerDef(rearlightControl, rearlightControlCallback);
+    rearlightControlHandle = osTimerCreate(osTimer(rearlightControl), osTimerPeriodic, NULL);
+
     /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
+    osTimerStart(sendStateDisplayHandle, 50);
+    osTimerStart(rearlightControlHandle, 200);
     /* USER CODE END RTOS_TIMERS */
 
     /* USER CODE BEGIN RTOS_QUEUES */
@@ -241,31 +257,6 @@ int main(void) {
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
-// TODO: Maybe move up the part before loop to USER CODE 2
-// Turn on the inverter
-// TODO: Send only once (?) no Hal delay! just send the On once or in the while loop
-    int time_sum = 0;
-    while (time_sum < 5000) {
-        send_turn_on_inverter(&tx_header, &hfdcan1);
-
-        // CAN messages at 50 ms interval
-        time_sum += 50;
-        HAL_Delay(50);
-    }
-
-// Send initial Race Mode and Rain State to display
-    //   send_race_mode_display(&race_state, &tx_header, &hfdcan1);
-    //   send_rain_state_display(&race_state, &tx_header, &hfdcan1);
-
-// Timers
-    uint32_t time_last_5ms = HAL_GetTick();
-    uint32_t time_last_50ms = HAL_GetTick();
-    uint32_t time_last_200ms = HAL_GetTick();
-    uint32_t time_now;
-
-    /************************************************
-     * SECTION : While loop
-     ***********************************************/
     while (1) {
         time_now = HAL_GetTick();
 
@@ -563,6 +554,13 @@ void sendStateDisplayCallback(void const* argument) {
     /* USER CODE BEGIN sendStateDisplayCallback */
 
     /* USER CODE END sendStateDisplayCallback */
+}
+
+/* rearlightControlCallback function */
+void rearlightControlCallback(void const* argument) {
+    /* USER CODE BEGIN rearlightControlCallback */
+
+    /* USER CODE END rearlightControlCallback */
 }
 
 /**

@@ -42,13 +42,6 @@ void race_state_init(struct RaceState* rs) {
     rs->race_mode = MODE_RACE;
 }
 
-void buton_moto_init(struct ButonMoto* bm) {
-    bm->ESDB_one = 0;
-    bm->ESDB_two = 0;
-    bm->TSMS = 0;
-    bm->LVMS = 0;
-}
-
 void handle_button_press(struct RaceState* rs, uint8_t button_index) {
     if (button_index == 1) {
         // Rain state update, green button
