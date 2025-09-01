@@ -95,6 +95,7 @@ void send_CAN_message(uint32_t address,
         while (1) {
         }  // error Handler
     }
+    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  //  light flashing to see if transmits
 }
 void send_CAN_message_four(uint32_t address,
     can_message_four* msg,

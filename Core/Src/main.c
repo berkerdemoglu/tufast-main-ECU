@@ -61,6 +61,9 @@ enum BMSCommState bms_comm_state = BMS_SLEEP;
 enum MotoCharge moto_charge = STATE_PRECHARGE;
 uint8_t button_moto = 0;  // 0b0000XYZT - X: ESDB_one, Y: ESDB_two, Z: TSMS, T: LVMS
 
+FDCAN_ProtocolStatusTypeDef ps;
+FDCAN_ErrorCountersTypeDef ec;
+
 // Sensors
 struct Throttle throttle_sensor;
 
@@ -98,8 +101,6 @@ void rearlightControlCallback(void const* argument);
 /* USER CODE BEGIN 0 */
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  //  light flashing to see if receives
-
         // Retrieve Rx messages from RX FIFO0
         if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rx_header, rx_data.bytes) != HAL_OK) {
             // Reception Error
@@ -148,7 +149,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
  * @brief  The application entry point.
  * @retval int
  */
-int main(void) {
+int main(void)
+{
 
     /* USER CODE BEGIN 1 */
 
@@ -246,7 +248,8 @@ int main(void) {
     BspCOMInit.StopBits = COM_STOPBITS_1;
     BspCOMInit.Parity = COM_PARITY_NONE;
     BspCOMInit.HwFlowCtl = COM_HWCONTROL_NONE;
-    if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE) {
+    if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
+    {
         Error_Handler();
     }
 
@@ -296,7 +299,8 @@ int main(void) {
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void) {
+void SystemClock_Config(void)
+{
     RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
     RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
@@ -317,19 +321,22 @@ void SystemClock_Config(void) {
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV8;
     RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
     RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
-    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+            {
         Error_Handler();
     }
 
     /** Initializes the CPU, AHB and APB buses clocks
      */
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+            | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+            {
         Error_Handler();
     }
 }
@@ -339,7 +346,8 @@ void SystemClock_Config(void) {
  * @param None
  * @retval None
  */
-static void MX_ADC2_Init(void) {
+static void MX_ADC2_Init(void)
+{
 
     /* USER CODE BEGIN ADC2_Init 0 */
 
@@ -369,7 +377,8 @@ static void MX_ADC2_Init(void) {
     hadc2.Init.DMAContinuousRequests = DISABLE;
     hadc2.Init.Overrun = ADC_OVR_DATA_PRESERVED;
     hadc2.Init.OversamplingMode = DISABLE;
-    if (HAL_ADC_Init(&hadc2) != HAL_OK) {
+    if (HAL_ADC_Init(&hadc2) != HAL_OK)
+            {
         Error_Handler();
     }
 
@@ -381,7 +390,8 @@ static void MX_ADC2_Init(void) {
     sConfig.SingleDiff = ADC_SINGLE_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset = 0;
-    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK) {
+    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+            {
         Error_Handler();
     }
     /* USER CODE BEGIN ADC2_Init 2 */
@@ -395,7 +405,8 @@ static void MX_ADC2_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_FDCAN1_Init(void) {
+static void MX_FDCAN1_Init(void)
+{
 
     /* USER CODE BEGIN FDCAN1_Init 0 */
 
@@ -422,7 +433,8 @@ static void MX_FDCAN1_Init(void) {
     hfdcan1.Init.StdFiltersNbr = 0;
     hfdcan1.Init.ExtFiltersNbr = 0;
     hfdcan1.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
-    if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK) {
+    if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
+            {
         Error_Handler();
     }
     /* USER CODE BEGIN FDCAN1_Init 2 */
@@ -442,7 +454,8 @@ static void MX_FDCAN1_Init(void) {
 /**
  * Enable DMA controller clock
  */
-static void MX_DMA_Init(void) {
+static void MX_DMA_Init(void)
+{
 
     /* DMA controller clock enable */
     __HAL_RCC_DMAMUX1_CLK_ENABLE();
@@ -460,7 +473,8 @@ static void MX_DMA_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_GPIO_Init(void) {
+static void MX_GPIO_Init(void)
+{
     GPIO_InitTypeDef GPIO_InitStruct = { 0 };
     /* USER CODE BEGIN MX_GPIO_Init_1 */
 
@@ -524,17 +538,21 @@ static void MX_GPIO_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const* argument) {
+void StartDefaultTask(void const* argument)
+{
     /* USER CODE BEGIN 5 */
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
+        osDelay(100);
     }
     /* USER CODE END 5 */
 }
 
 /* sendStateDisplayCallback function */
-void sendStateDisplayCallback(void const* argument) {
+void sendStateDisplayCallback(void const* argument)
+{
     /* USER CODE BEGIN sendStateDisplayCallback */
     // Write state data to TX data
     tx_data.int_val = 0;
@@ -553,7 +571,8 @@ void sendStateDisplayCallback(void const* argument) {
 }
 
 /* rearlightControlCallback function */
-void rearlightControlCallback(void const* argument) {
+void rearlightControlCallback(void const* argument)
+{
     /* USER CODE BEGIN rearlightControlCallback */
     if (race_state.rain_state == STATE_RAIN) {
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
@@ -575,11 +594,13 @@ void rearlightControlCallback(void const* argument) {
  * @param  htim : TIM handle
  * @retval None
  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
     /* USER CODE BEGIN Callback 0 */
 
     /* USER CODE END Callback 0 */
-    if (htim->Instance == TIM6) {
+    if (htim->Instance == TIM6)
+    {
         HAL_IncTick();
     }
     /* USER CODE BEGIN Callback 1 */
@@ -617,7 +638,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
     /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
