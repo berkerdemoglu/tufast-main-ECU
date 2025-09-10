@@ -72,6 +72,8 @@ void HAL_MspInit(void)
   __HAL_RCC_PWR_CLK_ENABLE();
 
   /* System interrupt init*/
+  /* PendSV_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
 
   /** Disable the internal Pull-Up in Dead Battery pins of UCPD peripheral
   */
@@ -112,13 +114,12 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
     /**ADC2 GPIO Configuration
-    PA0     ------> ADC2_IN1
     PA7     ------> ADC2_IN4
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_7;
+    GPIO_InitStruct.Pin = Throttle_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_Init(Throttle_GPIO_Port, &GPIO_InitStruct);
 
     /* ADC2 DMA Init */
     /* ADC2 Init */
@@ -139,7 +140,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     __HAL_LINKDMA(hadc,DMA_Handle,hdma_adc2);
 
     /* ADC2 interrupt Init */
-    HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(ADC1_2_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
     /* USER CODE BEGIN ADC2_MspInit 1 */
 
@@ -166,10 +167,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     __HAL_RCC_ADC12_CLK_DISABLE();
 
     /**ADC2 GPIO Configuration
-    PA0     ------> ADC2_IN1
     PA7     ------> ADC2_IN4
     */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0|GPIO_PIN_7);
+    HAL_GPIO_DeInit(Throttle_GPIO_Port, Throttle_Pin);
 
     /* ADC2 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
@@ -224,7 +224,7 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     /* FDCAN1 interrupt Init */
-    HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
     /* USER CODE BEGIN FDCAN1_MspInit 1 */
 
