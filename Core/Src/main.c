@@ -136,41 +136,6 @@ void send_CAN_message_four(uint32_t address, can_message_four* msg) {
 
 // Throttle functions
 
-void CAN_Charger(void) {
-    if (1) {
-        tx_data_four.bytes[0] = 0;
-        tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 0;
-        tx_data_four.bytes[3] = 0;
-    }
-    if (1) {
-        tx_data_four.bytes[0] = 0;
-        tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 1;
-        tx_data_four.bytes[3] = 0;
-    }
-    if (1) {
-        tx_data_four.bytes[0] = 0x20;
-        tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 20;					// change la valeur pour celle dont on a besoin
-        tx_data_four.bytes[3] = 0; // attention frame format!
-
-    }
-    if (1) {
-        tx_data_four.bytes[0] = 0x30;
-        tx_data_four.bytes[1] = 0;
-        tx_data_four.bytes[2] = 20;
-        tx_data_four.bytes[3] = 0;
-    }
-    if (1) {
-// different action here
-    }
-    tx_header.IdType = FDCAN_EXTENDED_ID;
-    send_CAN_message_four(CHARGER_RXID, &tx_data_four); //je dois le decommenter ensuite
-    tx_header.IdType = FDCAN_STANDARD_ID;
-
-}
-
 /* USER CODE END 0 */
 
 /**
