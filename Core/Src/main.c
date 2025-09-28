@@ -202,7 +202,7 @@ int main(void) {
         HAL_Delay(2000);
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);
         uint32_t sensor_value = 0;
-
+        ///testtttesttt
         tx_data_four.sensor_int = sensor_value;
         send_CAN_message_four(CHARGER_RXID, &tx_data_four);
         /* USER CODE END WHILE */
