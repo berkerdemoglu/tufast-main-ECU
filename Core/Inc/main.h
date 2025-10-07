@@ -72,6 +72,12 @@ typedef union {
     uint8_t bytes[8];
 } can_message_eight;
 
+typedef union {
+    float float_val;
+    uint32_t int_val;
+    uint8_t bytes[4];
+} bytes_four;
+
 // motorcycle State
 
 // Race modes
@@ -83,6 +89,47 @@ typedef enum {
     FAULT_STATUS = 4,
     OFF = 5
 } ChargerCom;
+
+
+
+//Sensors Begin
+
+//Accelerometer Begin
+struct Accelerometer {
+    uint8_t lin_acc_out_address;
+    uint8_t lin_acc_config[2];  // CTRL_1
+    uint8_t lin_acc_out_data[6];
+    float lin_acc_x;
+    float lin_acc_y;
+    float lin_acc_z;
+
+    uint8_t ang_vel_out_address;
+    uint8_t ang_vel_config[2];  // CTRL_2
+    uint8_t ang_vel_out_data[6];
+    float ang_vel_x;
+    float ang_vel_y;
+    float ang_vel_z;
+
+    uint8_t device_config[2];  // CTRL_9
+};
+//Accelerometer End
+
+//Steering Angle Start
+#define STEERING_BUFFER_SIZE 32
+struct SteeringAngle {
+    bytes_four steering_value;
+    float steering_output;
+
+    float adc_sum;
+    float buffer[STEERING_BUFFER_SIZE];
+    uint8_t buffer_index;
+};
+void steering_angle_init(struct SteeringAngle* sa);
+void steering_angle_avg(struct SteeringAngle* sa, float value);
+//Steering Angle End
+
+
+//Sensors End
 
 /* USER CODE END ET */
 
@@ -106,9 +153,24 @@ void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, 
 void send_CAN_message(uint32_t address, can_message_eight* msg);
 void send_CAN_message_four(uint32_t address, can_message_four* msg);
 
+void steering_angle_init(struct SteeringAngle* sa);
+void steering_angle_avg(struct SteeringAngle* sa, float value);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define Linear_Potentiometer_Pin GPIO_PIN_0
+#define Linear_Potentiometer_GPIO_Port GPIOA
+#define Pressure_Pin GPIO_PIN_1
+#define Pressure_GPIO_Port GPIOA
+#define Brake_Temperature_Pin GPIO_PIN_4
+#define Brake_Temperature_GPIO_Port GPIOA
+#define Steering_Angle_Pin GPIO_PIN_7
+#define Steering_Angle_GPIO_Port GPIOA
+#define I2C_SCL_ACCELEROMETER_Pin GPIO_PIN_15
+#define I2C_SCL_ACCELEROMETER_GPIO_Port GPIOA
+#define I2C_SDA_ACCELEROMETER_Pin GPIO_PIN_7
+#define I2C_SDA_ACCELEROMETER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 // Aswin throttle values (?)
