@@ -6,3 +6,6 @@
 .launch
 
 *.ld
+
+# Macbook
+.DS_Store
