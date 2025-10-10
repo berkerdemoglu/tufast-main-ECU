@@ -54,16 +54,16 @@ extern "C" {
 #define PIN_ERROR   GPIO_PIN_6
 
 // ---------------- A2C1 CAN IDs ----------------
-#define A2C1_ACC_X_ID           0x000C0B00
-#define A2C1_ACC_Y_ID           0x000C0C00
-#define A2C1_ACC_Z_ID           0x000C0D00
-#define A2C1_ANGV_X_ID          0x000C0E00
-#define A2C1_ANGV_Y_ID          0x000C0F00
-#define A2C1_ANGV_Z_ID          0x000C1000
-#define A2C1_BRAKE_TEMP_ID      0x000C1100
-#define A2C1_STEERING_ANGLE_ID  0x000C1200
-#define A2C1_PRESSURE_ID        0x000C1300
-#define A2C1_POTENTIOMETER_ID   0x000C1400
+#define A2C1_ACC_X_ID           0x000C0B
+#define A2C1_ACC_Y_ID           0x000C0C
+#define A2C1_ACC_Z_ID           0x000C0D
+#define A2C1_ANGV_X_ID          0x000C0E
+#define A2C1_ANGV_Y_ID          0x000C0F
+#define A2C1_ANGV_Z_ID          0x000C10
+#define A2C1_BRAKE_TEMP_ID      0x000C11
+#define A2C1_STEERING_ANGLE_ID  0x000C12
+#define A2C1_PRESSURE_ID        0x000C13
+#define A2C1_POTENTIOMETER_ID   0x000C14
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
