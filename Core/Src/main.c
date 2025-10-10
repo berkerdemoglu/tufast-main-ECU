@@ -356,6 +356,41 @@ int main(void)
 //        send_CAN_message_four(CHARGER_RXID, &tx_data_four);
 
 
+
+        // -------- A2C1: Accelerometer (IDs 11..16) --------
+        tx_data_four.sensor_float = accelerometer.lin_acc_x;
+        send_CAN_message_four(A2C1_ACC_X_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.lin_acc_y;
+        send_CAN_message_four(A2C1_ACC_Y_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.lin_acc_z;
+        send_CAN_message_four(A2C1_ACC_Z_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_x;
+        send_CAN_message_four(A2C1_ANGV_X_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_y;
+        send_CAN_message_four(A2C1_ANGV_Y_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_z;
+        send_CAN_message_four(A2C1_ANGV_Z_ID, &tx_data_four);
+
+        // -------- A2C1: ADC-based Sensors (IDs 17..20) --------
+        tx_data_four.sensor_float = BrakeTemperature;
+        send_CAN_message_four(A2C1_BRAKE_TEMP_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = SteeringAngle;
+        send_CAN_message_four(A2C1_STEERING_ANGLE_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = PressureValue;
+        send_CAN_message_four(A2C1_PRESSURE_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = LinearPotentiometerValue;
+        send_CAN_message_four(A2C1_POTENTIOMETER_ID, &tx_data_four);
+
+
+
         if (adc_complete_flag) {
 
         	BrakeTemperature=BrakeTemperatureADC(raw_adc_values[0]);
