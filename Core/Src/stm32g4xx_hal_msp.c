@@ -117,7 +117,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PA4     ------> ADC2_IN17
     PA7     ------> ADC2_IN4
     */
-    GPIO_InitStruct.Pin = Linear_Potentiometer_Pin|Pressure_Pin|Brake_Temperature_Pin|Steering_Angle_Pin;
+    GPIO_InitStruct.Pin = Linear_Potentiometer_Pin|Pressure_1_Pin|Brake_Temperature_Pin|Pressure_2_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -173,7 +173,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     PA4     ------> ADC2_IN17
     PA7     ------> ADC2_IN4
     */
-    HAL_GPIO_DeInit(GPIOA, Linear_Potentiometer_Pin|Pressure_Pin|Brake_Temperature_Pin|Steering_Angle_Pin);
+    HAL_GPIO_DeInit(GPIOA, Linear_Potentiometer_Pin|Pressure_1_Pin|Brake_Temperature_Pin|Pressure_2_Pin);
 
     /* ADC2 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);

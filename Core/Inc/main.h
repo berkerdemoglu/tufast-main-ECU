@@ -52,6 +52,19 @@ extern "C" {
 
 #define PORT_ERROR  GPIOA
 #define PIN_ERROR   GPIO_PIN_6
+
+// --- Define IDs for A2C2 ---
+#define A2C2_ACC_X_ID          0x000C0B00
+#define A2C2_ACC_Y_ID          0x000C0C00
+#define A2C2_ACC_Z_ID          0x000C0D00
+#define A2C2_ANGV_X_ID         0x000C0E00
+#define A2C2_ANGV_Y_ID         0x000C0F00
+#define A2C2_ANGV_Z_ID         0x000C1000
+#define A2C2_BRAKE_TEMP_ID     0x000C1100
+#define A2C2_PRESSURE2_ID      0x000C1200
+#define A2C2_PRESSURE1_ID      0x000C1300
+#define A2C2_POTENTIOMETER_ID  0x000C1400
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -161,12 +174,12 @@ void steering_angle_avg(struct SteeringAngle* sa, float value);
 /* Private defines -----------------------------------------------------------*/
 #define Linear_Potentiometer_Pin GPIO_PIN_0
 #define Linear_Potentiometer_GPIO_Port GPIOA
-#define Pressure_Pin GPIO_PIN_1
-#define Pressure_GPIO_Port GPIOA
+#define Pressure_1_Pin GPIO_PIN_1
+#define Pressure_1_GPIO_Port GPIOA
 #define Brake_Temperature_Pin GPIO_PIN_4
 #define Brake_Temperature_GPIO_Port GPIOA
-#define Steering_Angle_Pin GPIO_PIN_7
-#define Steering_Angle_GPIO_Port GPIOA
+#define Pressure_2_Pin GPIO_PIN_7
+#define Pressure_2_GPIO_Port GPIOA
 #define I2C_SCL_ACCELEROMETER_Pin GPIO_PIN_15
 #define I2C_SCL_ACCELEROMETER_GPIO_Port GPIOA
 #define I2C_SDA_ACCELEROMETER_Pin GPIO_PIN_7

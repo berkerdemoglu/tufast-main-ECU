@@ -70,7 +70,7 @@ uint16_t raw_adc_values[4];
 //Accelerometer Declaration
 struct Accelerometer accelerometer;
 //Brake Temperature Declaration
-float SteeringAngle,BrakeTemperature,PressureValue,LinearPotentiometerValue;
+float BrakeTemperature,PressureValue1,PressureValue2,LinearPotentiometerValue;
 //Steering Angle
 struct SteeringAngle steering_sensor;
 
@@ -354,13 +354,44 @@ int main(void)
 
         tx_data_four.sensor_int = sensor_value;
 //        send_CAN_message_four(CHARGER_RXID, &tx_data_four);
+        // --- Send Accelerometer values ---
+        tx_data_four.sensor_float = accelerometer.lin_acc_x;
+        send_CAN_message_four(A2C2_ACC_X_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.lin_acc_y;
+        send_CAN_message_four(A2C2_ACC_Y_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.lin_acc_z;
+        send_CAN_message_four(A2C2_ACC_Z_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_x;
+        send_CAN_message_four(A2C2_ANGV_X_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_y;
+        send_CAN_message_four(A2C2_ANGV_Y_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = accelerometer.ang_vel_z;
+        send_CAN_message_four(A2C2_ANGV_Z_ID, &tx_data_four);
+
+        // --- Send ADC-based sensors ---
+        tx_data_four.sensor_float = BrakeTemperature;
+        send_CAN_message_four(A2C2_BRAKE_TEMP_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = PressureValue2;
+        send_CAN_message_four(A2C2_PRESSURE2_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = PressureValue1;
+        send_CAN_message_four(A2C2_PRESSURE1_ID, &tx_data_four);
+
+        tx_data_four.sensor_float = LinearPotentiometerValue;
+        send_CAN_message_four(A2C2_POTENTIOMETER_ID, &tx_data_four);
 
 
         if (adc_complete_flag) {
 
         	BrakeTemperature=BrakeTemperatureADC(raw_adc_values[0]);
-			SteeringAngle=SteeringAngleADC(raw_adc_values[1]);
-			PressureValue=PressureSensorADC(raw_adc_values[2]);
+        	PressureValue2=PressureSensorADC(raw_adc_values[1]);
+			PressureValue1=PressureSensorADC(raw_adc_values[2]);
 			LinearPotentiometerValue=LinPotentiometer(raw_adc_values[3]);
 
         	adc_complete_flag=0;
