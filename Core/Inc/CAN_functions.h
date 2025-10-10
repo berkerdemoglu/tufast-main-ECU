@@ -68,7 +68,7 @@ void handle_charger_CAN(uint8_t value, can_message_four* tx_data_four, FDCAN_TxH
 void throttle_init(struct Throttle* thr);
 void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 
-void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state);
+void check_moto_state_LED(uint8_t safe_time_delta, enum MotoState* moto_state);
 void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
         FDCAN_HandleTypeDef* hfdcan1);
 void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,

@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -50,7 +51,7 @@ FDCAN_HandleTypeDef hfdcan1;
 /* USER CODE BEGIN PV */
 // Race state
 struct RaceState race_state;
-enum MotoState moto_state = STATE_ERROR;
+enum MotoState moto_state = STATE_NOT_SAFE;
 enum ChargerCommState charger_comm_state = CHARGER_ON;
 enum BMSCommState bms_comm_state = BMS_SLEEP;
 enum MotoCharge moto_charge = STATE_PRECHARGE;
@@ -192,28 +193,35 @@ int main(void) {
     BSP_LED_Init(LED_GREEN);
 
     /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
+    BspCOMInit.BaudRate = 115200;
+    BspCOMInit.WordLength = COM_WORDLENGTH_8B;
+    BspCOMInit.StopBits = COM_STOPBITS_1;
+    BspCOMInit.Parity = COM_PARITY_NONE;
+    BspCOMInit.HwFlowCtl = COM_HWCONTROL_NONE;
+    if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE) {
+        Error_Handler();
+    }
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
 // TODO: Maybe move up the part before loop to USER CODE 2
 // Turn on the inverter
 // TODO: Send only once (?) no Hal delay! just send the On once or in the while loop
-    int time_sum = 0;
-    while (time_sum < 5000) {
-        send_turn_on_inverter(&tx_header, &hfdcan1);
+    /*   int time_sum = 0;
+     while (time_sum < 5000) {
+     send_turn_on_inverter(&tx_header, &hfdcan1);
 
-        // CAN messages at 50 ms interval
-        time_sum += 50;
-        HAL_Delay(50);
-    }
-
+     // CAN messages at 50 ms interval
+     time_sum += 50;
+     HAL_Delay(50);
+     }
+     */
 // Send initial Race Mode and Rain State to display
     //   send_race_mode_display(&race_state, &tx_header, &hfdcan1);
     //   send_rain_state_display(&race_state, &tx_header, &hfdcan1);
-
 // Timers
     uint32_t time_last_5ms = HAL_GetTick();
-    uint32_t time_last_50ms = HAL_GetTick();
+
     uint32_t time_last_200ms = HAL_GetTick();
     uint32_t time_now;
 
@@ -224,31 +232,33 @@ int main(void) {
         time_now = HAL_GetTick();
 
         // Display
-        if (time_now - time_last_5ms > 5) {
-            //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
-            time_last_5ms = time_now;  // update last time
-        }
+        /*  if (time_now - time_last_5ms > 5) {
+         //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
+         time_last_5ms = time_now;  // update last time
+         }
 
-        // Inverter
-        if (time_now - time_last_50ms > 50) {
-            //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
-            time_last_50ms = time_now;  // update last time
-        }
+         // Inverter
+         if (time_now - time_last_50ms > 50) {
+         //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
+         time_last_50ms = time_now;  // update last time
+         }
 
-        // Rearlight
-        if (time_now - time_last_200ms > 200) {
-            if (race_state.rain_state == STATE_RAIN) {
-                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-            } else if (race_state.race_mode == MODE_RACE) {
-                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
-            } else {
-                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-            }
+         // Rearlight
+         if (time_now - time_last_200ms > 200) {
+         if (race_state.rain_state == STATE_RAIN) {
+         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+         } else if (race_state.race_mode == MODE_RACE) {
+         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+         } else {
+         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+         }
 
-            check_moto_state(time_now - time_last_200ms, &moto_state);
+         check_moto_state_LED(time_now - time_last_200ms, &moto_state);
 
-            time_last_200ms = time_now;  // update last time
-        } // todo: Clean it and make a function
+         time_last_200ms = time_now;  // update last time
+         } // todo: Clean it and make a function
+         */
+        check_moto_state_LED(time_now - time_last_200ms, &moto_state);
 
         // Other tasks
         if (adc_complete_flag) {

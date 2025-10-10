@@ -66,7 +66,7 @@ void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
     }
 }
 
-void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state) {
+void check_moto_state_LED(uint8_t safe_time_delta, enum MotoState* moto_state) {
     switch (*moto_state) {
         case STATE_SAFE:
             if (safe_time_delta > 200) {  // toggle every 200 ms
@@ -79,7 +79,7 @@ void check_moto_state(uint8_t safe_time_delta, enum MotoState* moto_state) {
         case STATE_CHARGE:
             set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
             break;
-        case STATE_ERROR:
+        case STATE_NOT_SAFE:
             set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
             break;
     }

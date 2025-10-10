@@ -19,7 +19,7 @@ enum MotoState {
     STATE_SAFE = 0,
     STATE_ENGAGED = 1,
     STATE_CHARGE = 2,
-    STATE_ERROR = 3
+    STATE_NOT_SAFE = 3
 };
 
 //

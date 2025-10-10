@@ -24,7 +24,7 @@ void handle_moto_state(enum MotoState* moto_state) {
 
         if (HAL_GPIO_ReadPin(PORT_NOT_SAFE, PIN_NOT_SAFE) == GPIO_PIN_RESET) {
 
-            *moto_state = STATE_ERROR;
+            *moto_state = STATE_NOT_SAFE;
 
         }
     }
