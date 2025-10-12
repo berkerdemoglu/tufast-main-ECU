@@ -52,6 +52,7 @@ FDCAN_HandleTypeDef hfdcan1;
 osThreadId defaultTaskHandle;
 osTimerId sendStateDisplayHandle;
 osTimerId rearlightControlHandle;
+osTimerId sendThrottleDisplayHandle;
 /* USER CODE BEGIN PV */
 // Race state
 struct RaceState race_state;
@@ -92,6 +93,7 @@ static void MX_FDCAN1_Init(void);
 void StartDefaultTask(void const* argument);
 void sendStateDisplayCallback(void const* argument);
 void rearlightControlCallback(void const* argument);
+void sendThrottleDisplayCallback(void const* argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -118,10 +120,10 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                 case 0x481:
                     break;
                     // Display
-                case 0x301:
-                    // Read which button was pressed todo: reput it afterwards
-                    // button_data_test.int_val = rx_data.int_val;
-                    //  handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
+                case 0x191:
+                    // Read which button was pressed
+                    button_data_test.int_val = rx_data.int_val;
+                    handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
                     break;
                     // BMS
                 case 0x341:
@@ -198,9 +200,6 @@ int main(void)
     // Turn on the inverter
     send_turn_on_inverter(&tx_header, &hfdcan1);
 
-    // Send initial Race Mode and Rain State to display
-    //   send_race_mode_display(&race_state, &tx_header, &hfdcan1);
-    //   send_rain_state_display(&race_state, &tx_header, &hfdcan1);
     /* USER CODE END 2 */
 
     /* USER CODE BEGIN RTOS_MUTEX */
@@ -220,10 +219,15 @@ int main(void)
     osTimerDef(rearlightControl, rearlightControlCallback);
     rearlightControlHandle = osTimerCreate(osTimer(rearlightControl), osTimerPeriodic, NULL);
 
+    /* definition and creation of sendThrottleDisplay */
+    osTimerDef(sendThrottleDisplay, sendThrottleDisplayCallback);
+    sendThrottleDisplayHandle = osTimerCreate(osTimer(sendThrottleDisplay), osTimerPeriodic, NULL);
+
     /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
     osTimerStart(sendStateDisplayHandle, 50);
     osTimerStart(rearlightControlHandle, 200);
+    osTimerStart(sendThrottleDisplayHandle, 50);  // TODO: reduce this to 5-10 ms
     /* USER CODE END RTOS_TIMERS */
 
     /* USER CODE BEGIN RTOS_QUEUES */
@@ -261,20 +265,6 @@ int main(void)
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1) {
-        // TODO: Remove this stuff below
-        // Display
-//        if (time_now - time_last_5ms > 5) {
-//            //     send_throttle_display(&throttle_sensor, &tx_header, &hfdcan1);
-//            time_last_5ms = time_now;  // update last time
-//        }
-
-        // Inverter
-//        if (time_now - time_last_50ms > 50) {
-//            //send_velocity_ref_inverter(&throttle_sensor, &tx_header, &hfdcan1);
-//            time_last_50ms = time_now;  // update last time
-//        }
-
-        // Other tasks
 //        if (adc_complete_flag) {
 //            // Get throttle
 //            convert_adc_throttle(&throttle_sensor, raw_adc_value);
@@ -282,7 +272,7 @@ int main(void)
 //            // Reset ADC input
 //            adc_complete_flag = 0;
 //            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
-//        } //todo: Clean it and make a function
+//        }
 
         // TODO: uncomment the function calls below (?)
         // state of the motorcycle
@@ -424,7 +414,7 @@ static void MX_FDCAN1_Init(void)
     hfdcan1.Init.ProtocolException = DISABLE;
     hfdcan1.Init.NominalPrescaler = 8;
     hfdcan1.Init.NominalSyncJumpWidth = 1;
-    hfdcan1.Init.NominalTimeSeg1 = 29;
+    hfdcan1.Init.NominalTimeSeg1 = 13;
     hfdcan1.Init.NominalTimeSeg2 = 2;
     hfdcan1.Init.DataPrescaler = 1;
     hfdcan1.Init.DataSyncJumpWidth = 1;
@@ -543,8 +533,18 @@ void StartDefaultTask(void const* argument)
     /* USER CODE BEGIN 5 */
     /* Infinite loop */
     for (;;) {
-        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
+        // TODO: Remove this CAN testing stuff below
+//        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+//        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
+
+//        if (adc_complete_flag) {
+//            // Get throttle
+//            convert_adc_throttle(&throttle_sensor, raw_adc_value);
+//
+//            // Reset ADC input
+//            adc_complete_flag = 0;
+//            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
+//        }
         osDelay(100);
     }
     /* USER CODE END 5 */
@@ -564,6 +564,7 @@ void sendStateDisplayCallback(void const* argument)
     tx_data.bytes[4] = charger_comm_state;
     tx_data.bytes[5] = bms_comm_state;
     tx_data.bytes[6] = button_moto;
+    tx_data.bytes[7] = 90;  // state of health, TODO
 
     // Send the message
     send_CAN_message(0x202, &tx_data, &tx_header, &hfdcan1);
@@ -584,6 +585,19 @@ void rearlightControlCallback(void const* argument)
 
     check_moto_state(moto_state);
     /* USER CODE END rearlightControlCallback */
+}
+
+/* sendThrottleDisplayCallback function */
+void sendThrottleDisplayCallback(void const* argument)
+{
+    /* USER CODE BEGIN sendThrottleDisplayCallback */
+//    tx_data.int_val = 0;
+//    tx_data.second.float_val = throttle_sensor.throttle_value.float_val;
+//    send_CAN_message(0x102, &tx_data, &tx_header, &hfdcan1);
+    // TODO: Remove code below
+    tx_data.int_val = 0x0000002000000030;
+    send_CAN_message(0x711, &tx_data, &tx_header, &hfdcan1);
+    /* USER CODE END sendThrottleDisplayCallback */
 }
 
 /**
