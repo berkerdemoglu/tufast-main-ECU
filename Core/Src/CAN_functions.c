@@ -83,10 +83,8 @@ void check_moto_state(enum MotoState moto_state) {
     }
 }
 
-void send_CAN_message(uint32_t address,
-    can_message_eight* msg,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1) {
+void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1) {
     // Update ID of the transmit header
     tx_header->Identifier = address;
 
@@ -97,10 +95,8 @@ void send_CAN_message(uint32_t address,
     }
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  //  light flashing to see if transmits
 }
-void send_CAN_message_four(uint32_t address,
-    can_message_four* msg,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1) {
+void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1) {
     // Update ID of the transmit header
     tx_header->Identifier = address;
     tx_header->DataLength = FDCAN_DLC_BYTES_4;
@@ -120,12 +116,9 @@ void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef
 }
 
 // BMS and Charger functions
-void handle_charger_CAN(uint8_t value,
-    can_message_four* tx_data_four,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    enum ChargerCommState* charger_comm_state,
-    FDCAN_HandleTypeDef* hfdcan1) {
-    // TODO: Replace with switch
+void handle_charger_CAN(can_message_four* tx_data_four, FDCAN_TxHeaderTypeDef* tx_header,
+        enum ChargerCommState* charger_comm_state, FDCAN_HandleTypeDef* hfdcan1, battery bat) {
+    // TODO: know how to transform the values to be understandable by charger
     if (*charger_comm_state == CHARGER_OFF) {
         tx_data_four->bytes[0] = 0;
         tx_data_four->bytes[1] = 0;
@@ -154,11 +147,8 @@ void handle_charger_CAN(uint8_t value,
     tx_header->IdType = FDCAN_STANDARD_ID;
 }
 
-void handle_BMS_CAN(uint8_t value,
-    can_message_eight* tx_data,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    enum BMSCommState* bms_comm_state,
-    FDCAN_HandleTypeDef* hfdcan1) {
+void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTypeDef* tx_header,
+        enum BMSCommState* bms_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
     // TODO: this function needs more work!
     if (*bms_comm_state == BMS_SLEEP) {
         tx_data->bytes[0] = 0x20;
@@ -183,10 +173,8 @@ void handle_BMS_CAN(uint8_t value,
 }
 
 // Display transmission functions
-void send_throttle_display(struct Throttle* th,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data) {
+void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data) {
     // Send throttle in the first 4 bytes
     th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
     convert_float_display(&th->throttle_value, &tx_data->first, DECIMAL_POINT_2);
@@ -195,11 +183,8 @@ void send_throttle_display(struct Throttle* th,
     send_CAN_message(0x102, tx_data, tx_header, hfdcan1);
 }
 
-void send_velocity_ref_inverter(struct Throttle* th,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data,
-    struct Throttle* throttle_sensor) {
+void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data, struct Throttle* throttle_sensor) {
     // Check for safe throttle (and RPM) values
     if (throttle_sensor->throttle_value.float_val <= 100.0f) {
         tx_data->first.int_val = 0;
@@ -208,4 +193,15 @@ void send_velocity_ref_inverter(struct Throttle* th,
 
         send_turn_on_inverter(tx_header, hfdcan1);
     }
+}
+uint16_t convertBigEndian(uint8_t byte0, uint8_t byte1) {
+    uint16_t value = byte0 * 256 + byte1;
+    return value;
+}
+void convert_BMS_CAN(uint8_t receive_BMS[8], battery* bat) {
+
+    bat->voltage = convertBigEndian(receive_BMS[0], receive_BMS[1]) * 0.1;
+    bat->current = convertBigEndian(receive_BMS[2], receive_BMS[3]) * 0.1;
+    bat->capacity = convertBigEndian(receive_BMS[4], receive_BMS[5]) * 1;
+    bat->soc = convertBigEndian(receive_BMS[6], receive_BMS[7]) * 0.01;
 }

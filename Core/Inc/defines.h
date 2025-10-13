@@ -48,6 +48,33 @@
 #define PORT_ESDB_TWO      GPIOA
 #define PIN_ESDB_TWO       GPIO_PIN_0
 
+#define ESDB2_Pin GPIO_PIN_0
+#define ESDB2_GPIO_Port GPIOA
+#define ESDB_Pin GPIO_PIN_1
+#define ESDB_GPIO_Port GPIOA
+#define Normal_Pin GPIO_PIN_4
+#define Normal_GPIO_Port GPIOA
+#define Charge_Led_Pin GPIO_PIN_5
+#define Charge_Led_GPIO_Port GPIOA
+#define Error_LED_Pin GPIO_PIN_6
+#define Error_LED_GPIO_Port GPIOA
+#define Throttle_Pin GPIO_PIN_7
+#define Throttle_GPIO_Port GPIOA
+#define Precharge_Pin GPIO_PIN_0
+#define Precharge_GPIO_Port GPIOB
+#define Sensata_Aux_Pin GPIO_PIN_8
+#define Sensata_Aux_GPIO_Port GPIOA
+#define Green_LED_Pin GPIO_PIN_9
+#define Green_LED_GPIO_Port GPIOA
+#define RELAY_CHARGER_Pin GPIO_PIN_10
+#define RELAY_CHARGER_GPIO_Port GPIOA
+#define Debug_LED_Pin GPIO_PIN_3
+#define Debug_LED_GPIO_Port GPIOB
+#define LVMS_Pin GPIO_PIN_4
+#define LVMS_GPIO_Port GPIOB
+#define TSMS_Pin GPIO_PIN_5
+#define TSMS_GPIO_Port GPIOB
+
 // The macros below are to be used in the float convert function for the display
 #define DECIMAL_POINT_0 1
 #define DECIMAL_POINT_1 10

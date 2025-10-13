@@ -90,8 +90,8 @@ void fault_pin_service(void);
 #define Sensata_Aux_GPIO_Port GPIOA
 #define Green_LED_Pin GPIO_PIN_9
 #define Green_LED_GPIO_Port GPIOA
-#define Not_safe_Pin GPIO_PIN_10
-#define Not_safe_GPIO_Port GPIOA
+#define RELAY_CHARGER_Pin GPIO_PIN_10
+#define RELAY_CHARGER_GPIO_Port GPIOA
 #define Debug_LED_Pin GPIO_PIN_3
 #define Debug_LED_GPIO_Port GPIOB
 #define LVMS_Pin GPIO_PIN_4
