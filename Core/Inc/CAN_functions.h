@@ -46,18 +46,13 @@ struct Throttle {
 void send_can_message_four(uint32_t address, can_message_four* msg);
 void send_can_message_eight(uint32_t address, can_message_eight* msg);
 void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1);
-void send_velocity_ref_inverter(struct Throttle* th,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data,
-    struct Throttle* throttle);
+void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data, struct Throttle* throttle);
 
 // Display CAN transmit functions
 void convert_float_display(can_message_four* msg_in, can_message_four* msg_out, int decimal_points);
-void send_throttle_display(struct Throttle* th,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1,
-    can_message_eight* tx_data);
+void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
+        can_message_eight* tx_data);
 
 // BMS, Charger, Output Pins related
 void charger_comms_init(struct ChargerCommState* ccs);
@@ -76,13 +71,10 @@ void throttle_init(struct Throttle* thr);
 void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 
 void check_moto_state(enum MotoState moto_state);
-void send_CAN_message(uint32_t address,
-    can_message_eight* msg,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1);
-void send_CAN_message_four(uint32_t address,
-    can_message_four* msg,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    FDCAN_HandleTypeDef* hfdcan1);
+void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1);
+void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
+        FDCAN_HandleTypeDef* hfdcan1);
+void convert_BMS_CAN(uint8_t receive_BMS[8], battery* bat);
 
 #endif /* INC_CAN_FUNCTIONS_H_ */

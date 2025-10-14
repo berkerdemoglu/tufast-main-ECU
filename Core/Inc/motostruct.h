@@ -76,6 +76,15 @@ struct ButonMoto {
     bool TSMS;
     bool LVMS;
 };
+// we could throw this
+
+typedef struct battery {
+    uint16_t voltage;
+    uint16_t current;
+    uint16_t capacity;
+    uint16_t soc;
+    uint8_t raw[8];
+} battery;
 
 void handle_moto_discharge(enum MotoState* moto_state);
 void handle_moto_state(enum MotoState* moto_state);
@@ -83,5 +92,6 @@ void set_output_pins(GPIO_PinState o1, GPIO_PinState o2, GPIO_PinState o3, GPIO_
 void race_state_init(struct RaceState* rs);
 void buton_moto_init(struct ButonMoto* bm);
 void handle_button_press(struct RaceState* rs, uint8_t button_index);
-
+void check_moto_state_LED(enum MotoState* moto_state);
+void readRelay(enum MotoState* moto_state);
 #endif /* INC_MOTOSTRUCT_H_ */
