@@ -120,38 +120,44 @@ void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef
 }
 
 // BMS and Charger functions
-void handle_charger_CAN(uint8_t value,
-    can_message_four* tx_data_four,
+void charger_comms_init(struct ChargerCommState* ccs) {
+    ccs->state = CHARGER_OFF;
+    ccs->flag_byte = 1;  // TODO: maybe init with 0?
+}
+void handle_charger_CAN(can_message_eight* tx_data,
     FDCAN_TxHeaderTypeDef* tx_header,
-    enum ChargerCommState* charger_comm_state,
+    struct ChargerCommState* charger_comm_state,
     FDCAN_HandleTypeDef* hfdcan1) {
-    // TODO: Replace with switch
-    if (*charger_comm_state == CHARGER_OFF) {
-        tx_data_four->bytes[0] = 0;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0;
-        tx_data_four->bytes[3] = 0;
-    } else if (*charger_comm_state == CHARGER_ON) {
-        tx_data_four->bytes[0] = 0;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 1;
-        tx_data_four->bytes[3] = 0;
-    } else if (*charger_comm_state == CHARGER_VOUT_SET) {
-        tx_data_four->bytes[0] = 0x20;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0x58;  // TODO: change the value to the one we need
-        tx_data_four->bytes[3] = 0x1B; // frame format!
-    } else if (*charger_comm_state == CHARGER_IOUT_SET) {
-        tx_data_four->bytes[0] = 0x20;
-        tx_data_four->bytes[1] = 0;
-        tx_data_four->bytes[2] = 0x10;
-        tx_data_four->bytes[3] = 0x27;
-    } else {  // charger_comm_state == FAULT_STATUS
-        // TODO: different action here
+    // Send a message to MoTeC that will be relayed to the charger
+    switch (charger_comm_state->state) {
+        case CHARGER_OFF:
+            tx_data->second.int_val = 0x00000000;
+            break;
+        case CHARGER_ON:
+            tx_data->second.int_val = 0x00010000;
+            break;
+        case CHARGER_VOUT_SET:
+            // byte 3 - frame format, byte 2 - the value we want
+            tx_data->second.int_val = 0x1B580020;
+            break;
+        case CHARGER_IOUT_SET:
+            tx_data->second.int_val = 0x27100020;
+            break;
+        default:  // charger_comm_state == FAULT_STATUS
+            // TODO
+            break;
     }
-    tx_header->IdType = FDCAN_EXTENDED_ID;
-    send_CAN_message_four(CHARGER_RXID, tx_data_four, tx_header, hfdcan1);
-    tx_header->IdType = FDCAN_STANDARD_ID;
+    tx_data->first.int_val = charger_comm_state->flag_byte;
+
+    // Update the flag byte
+    if (charger_comm_state->flag_byte == 1) {
+        charger_comm_state->flag_byte = 2;
+    } else {
+        charger_comm_state->flag_byte = 0;
+    }
+
+    // Send the message to the dashboard
+    send_CAN_message(0x302, tx_data, tx_header, hfdcan1);
 }
 
 void handle_BMS_CAN(uint8_t value,

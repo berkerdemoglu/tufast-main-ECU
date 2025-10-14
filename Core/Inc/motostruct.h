@@ -30,12 +30,17 @@ enum MotoCharge {
 };
 
 // Communication state with the charger
-enum ChargerCommState {
+enum ChargerState {
     CHARGER_ON = 1,
     CHARGER_VOUT_SET = 2,
     CHARGER_IOUT_SET = 3,
     CHARGER_FAULT_STATUS = 4,
     CHARGER_OFF = 5
+};
+
+struct ChargerCommState {
+    enum ChargerState state;
+    uint8_t flag_byte;
 };
 
 // Communication state with the BMS

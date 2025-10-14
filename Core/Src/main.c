@@ -57,7 +57,7 @@ osTimerId sendThrottleDisplayHandle;
 // Race state
 struct RaceState race_state;
 enum MotoState moto_state = STATE_ERROR;
-enum ChargerCommState charger_comm_state = CHARGER_ON;
+struct ChargerCommState charger_comm_state;
 enum BMSCommState bms_comm_state = BMS_SLEEP;
 enum MotoCharge moto_charge = STATE_PRECHARGE;
 uint8_t button_moto = 0;  // 0b0000XYZT - X: ESDB_one, Y: ESDB_two, Z: TSMS, T: LVMS
@@ -191,11 +191,10 @@ int main(void)
         Error_Handler();
     }
 
-    // Init race state
+    // Init structs
     race_state_init(&race_state);
-
-    // Init sensor structs
     throttle_init(&throttle_sensor);
+    charger_comms_init(&charger_comm_state);
 
     // Turn on the inverter
     send_turn_on_inverter(&tx_header, &hfdcan1);
@@ -561,7 +560,7 @@ void sendStateDisplayCallback(void const* argument)
     tx_data.bytes[1] = race_state.rain_state;
     tx_data.bytes[2] = moto_state;
     tx_data.bytes[3] = moto_charge;
-    tx_data.bytes[4] = charger_comm_state;
+    tx_data.bytes[4] = charger_comm_state.state;
     tx_data.bytes[5] = bms_comm_state;
     tx_data.bytes[6] = button_moto;
     tx_data.bytes[7] = 90;  // state of health, TODO

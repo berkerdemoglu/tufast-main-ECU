@@ -60,15 +60,15 @@ void send_throttle_display(struct Throttle* th,
     can_message_eight* tx_data);
 
 // BMS, Charger, Output Pins related
+void charger_comms_init(struct ChargerCommState* ccs);
+void handle_charger_CAN(can_message_eight* tx_data,
+    FDCAN_TxHeaderTypeDef* tx_header,
+    struct ChargerCommState* charger_comm_state,
+    FDCAN_HandleTypeDef* hfdcan1);
 void handle_BMS_CAN(uint8_t value,
     can_message_eight* tx_data,
     FDCAN_TxHeaderTypeDef* tx_header,
     enum BMSCommState* bms_comm_state,
-    FDCAN_HandleTypeDef* hfdcan1);
-void handle_charger_CAN(uint8_t value,
-    can_message_four* tx_data_four,
-    FDCAN_TxHeaderTypeDef* tx_header,
-    enum ChargerCommState* charger_comm_state,
     FDCAN_HandleTypeDef* hfdcan1);
 
 // Throttle functions
