@@ -37,6 +37,7 @@ extern "C" {
 #include "CAN_functions.h"
 #include "defines.h"
 #include "motostruct.h"
+#include "cmsis_os.h"
 
 /* USER CODE END Includes */
 
@@ -52,7 +53,7 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+extern osMailQId can_msg_queue_id;
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

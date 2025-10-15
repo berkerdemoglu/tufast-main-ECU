@@ -86,6 +86,10 @@ can_message_eight button_data_test;
 // ADC
 __IO uint8_t adc_complete_flag = 0;
 uint16_t raw_adc_value;
+
+// Mail queue
+osMailQDef(can_msg_queue, 128, struct can_message_mail_obj);
+osMailQId (can_msg_queue_id);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -262,6 +266,7 @@ int main(void)
 
     /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
+    can_msg_queue_id = osMailCreate(osMailQ(can_msg_queue), NULL);
     /* USER CODE END RTOS_QUEUES */
 
     /* Create the thread(s) */
@@ -548,7 +553,19 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void add_can_msg_to_queue(uint32_t address, can_message_eight* msg) {
+    // Add msg to queue
+    struct can_message_mail_obj* mail_to_add;
+    mail_to_add = (struct can_message_mail_obj*) osMailAlloc(can_msg_queue_id, osWaitForever);
 
+    if (mail_to_add != NULL) {
+        mail_to_add->data.int_val = msg->int_val;
+        mail_to_add->id = address;
+        mail_to_add->length = FDCAN_DLC_BYTES_8;
+
+        osMailPut(can_msg_queue_id, mail_to_add);
+    }
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -567,6 +584,7 @@ void StartDefaultTask(void const* argument)
 //        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
 //        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
 
+        // Check ADC
         if (adc_complete_flag) {
             // Get throttle
             convert_adc_throttle(&throttle_sensor, raw_adc_value);
@@ -576,16 +594,31 @@ void StartDefaultTask(void const* argument)
             adc_complete_flag = 0;
             HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
         }
+
+        // Send CAN msg if we can
+        if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) > 0) {
+            osEvent event = osMailGet(can_msg_queue_id, osWaitForever);
+            struct can_message_mail_obj* received = (struct can_message_mail_obj*) event.value.p;
+
+            // Update ID of the transmit header
+            tx_header.Identifier = received->id;
+
+            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, received->data.bytes) != HAL_OK) {
+                Error_Handler();
+            }
+            osMailFree(can_msg_queue_id, received);
+
+        }
         osDelay(1);
+        /* USER CODE END 5 */
     }
-    /* USER CODE END 5 */
 }
 
 /* sendStateDisplayCallback function */
 void sendStateDisplayCallback(void const* argument)
 {
     /* USER CODE BEGIN sendStateDisplayCallback */
-    // Write state data to TX data
+// Write state data to TX data
     tx_data.int_val = 0;
 
     tx_data.bytes[0] = race_state.race_mode;
@@ -598,7 +631,7 @@ void sendStateDisplayCallback(void const* argument)
     tx_data.bytes[7] = 90;  // state of health, TODO
 
     // Send the message
-    send_CAN_message(0x202, &tx_data, &tx_header, &hfdcan1);
+    add_can_msg_to_queue(0x202, &tx_data);
     /* USER CODE END sendStateDisplayCallback */
 }
 
@@ -628,8 +661,8 @@ void sendThrottleDisplayCallback(void const* argument)
             &tx_data.second,
             DECIMAL_POINT_2
             );
-    send_CAN_message(0x102, &tx_data, &tx_header, &hfdcan1);
-    // TODO: Remove code below
+    add_can_msg_to_queue(0x102, &tx_data);
+// TODO: Remove code below
 //    tx_data.int_val = 0x0000002000000030;
 //    send_CAN_message(0x711, &tx_data, &tx_header, &hfdcan1);
     /* USER CODE END sendThrottleDisplayCallback */
@@ -640,7 +673,7 @@ void ledClusterCallback(void const* argument)
 {
     /* USER CODE BEGIN ledClusterCallback */
     check_moto_state_LED(&moto_state);
-    // HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8); // change l’état de la pin // change to correct one
+// HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8); // change l’état de la pin // change to correct one
     /* USER CODE END ledClusterCallback */
 }
 
@@ -668,13 +701,13 @@ void inverterControlCallback(void const* argument)
 {
     /* USER CODE BEGIN inverterControlCallback */
     // Check for safe throttle (and RPM) values
-//    if (throttle_sensor.throttle_value.float_val <= 100.0f) {
-//        tx_data.first.int_val = 0;
-//        tx_data.second.float_val = 1 * throttle_sensor.throttle_value.float_val;
-//        send_CAN_message(0x301, &tx_data, &tx_header, &hfdcan1);
-//
-//        send_CAN_message(0x201, &inverter_on_msg, &tx_header, &hfdcan1);
-//    }
+    if (throttle_sensor.throttle_value.float_val <= 100.0f) {
+        tx_data.first.int_val = 0;
+        tx_data.second.float_val = 1 * throttle_sensor.throttle_value.float_val;
+        add_can_msg_to_queue(0x301, &tx_data);
+
+        add_can_msg_to_queue(0x201, &inverter_on_msg);
+    }
     /* USER CODE END inverterControlCallback */
 }
 

@@ -86,17 +86,20 @@ void check_moto_state(enum MotoState moto_state) {
 void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1) {
     // Update ID of the transmit header
-    tx_header->Identifier = address;
+//    tx_header->Identifier = address;
 
-    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, tx_header, msg->bytes) != HAL_OK) {
-        __disable_irq();
-        while (1) {
-        }  // error Handler
-    }
+    // Add msg to queue
+//    struct can_message_mail_obj* mail_to_add;
+//    mail_to_add = (struct can_message_mail_obj*) osMailAlloc(object_pool_q_id, osWaitForever);
+
+//    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, tx_header, msg->bytes) != HAL_OK) {
+//        __disable_irq();
+//        while (1) {
+//        }  // error Handler
 }
 void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1) {
-    // Update ID of the transmit header
+// Update ID of the transmit header
     tx_header->Identifier = address;
     tx_header->DataLength = FDCAN_DLC_BYTES_4;
 
@@ -108,7 +111,7 @@ void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHead
     tx_header->DataLength = FDCAN_DLC_BYTES_8;
 }
 void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-    // Sends an ON message to the inverter
+// Sends an ON message to the inverter
     can_message_eight inverter_on_msg = { .int_val = 0x0101010101010101 };
 
     send_CAN_message(0x201, &inverter_on_msg, tx_header, hfdcan1);
@@ -124,7 +127,7 @@ void handle_charger_CAN(can_message_eight* tx_data,
     FDCAN_TxHeaderTypeDef* tx_header,
     struct ChargerCommState* charger_comm_state,
     FDCAN_HandleTypeDef* hfdcan1) {
-    // Send a message to MoTeC that will be relayed to the charger
+// Send a message to MoTeC that will be relayed to the charger
     switch (charger_comm_state->state) {
         case CHARGER_OFF:
             tx_data->second.int_val = 0x00000000;
@@ -145,20 +148,20 @@ void handle_charger_CAN(can_message_eight* tx_data,
     }
     tx_data->first.int_val = charger_comm_state->flag_byte;
 
-    // Update the flag byte
+// Update the flag byte
     if (charger_comm_state->flag_byte == 1) {
         charger_comm_state->flag_byte = 2;
     } else {
         charger_comm_state->flag_byte = 0;
     }
 
-    // Send the message to the dashboard
+// Send the message to the dashboard
     send_CAN_message(0x302, tx_data, tx_header, hfdcan1);
 }
 
 void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTypeDef* tx_header,
     enum BMSCommState* bms_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
-    // TODO: this function needs more work!
+// TODO: this function needs more work!
     if (*bms_comm_state == BMS_SLEEP) {
         tx_data->bytes[0] = 0x20;
         tx_data->bytes[1] = 0;
@@ -184,7 +187,7 @@ void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTyp
 // Display transmission functions
 void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
     can_message_eight* tx_data) {
-    // Send throttle in the first 4 bytes
+// Send throttle in the first 4 bytes
     th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
     convert_float_display(&th->throttle_value, &tx_data->first, DECIMAL_POINT_2);
 
@@ -194,7 +197,7 @@ void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header
 
 void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
     can_message_eight* tx_data, struct Throttle* throttle_sensor) {
-    // Check for safe throttle (and RPM) values
+// Check for safe throttle (and RPM) values
     if (throttle_sensor->throttle_value.float_val <= 100.0f) {
         tx_data->first.int_val = 0;
         tx_data->second.float_val = 1 * throttle_sensor->throttle_value.float_val;
