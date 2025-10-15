@@ -244,9 +244,9 @@ int main(void) {
 
     /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-    //osTimerStart(sendStateDisplayHandle, 50);
+    osTimerStart(sendStateDisplayHandle, 50);
     osTimerStart(rearlightControlHandle, 200);
-    //osTimerStart(sendThrottleDisplayHandle, 50);  // TODO: reduce this to 5-10 ms
+    osTimerStart(sendThrottleDisplayHandle, 50);  // TODO: reduce this to 5-10 ms
     osTimerStart(ledClusterHandle, 1000);
     osTimerStart(relayReadHandle, 100);
     osTimerStart(chargeHandle, 100);
@@ -555,7 +555,7 @@ void StartDefaultTask(void const* argument) {
             adc_complete_flag = 0;
             HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
         }
-//        osDelay(100);
+        osDelay(1);
     }
     /* USER CODE END 5 */
 }
@@ -598,12 +598,16 @@ void rearlightControlCallback(void const* argument) {
 /* sendThrottleDisplayCallback function */
 void sendThrottleDisplayCallback(void const* argument) {
     /* USER CODE BEGIN sendThrottleDisplayCallback */
-//    tx_data.int_val = 0;
-//    tx_data.second.float_val = throttle_sensor.throttle_value.float_val;
-//    send_CAN_message(0x102, &tx_data, &tx_header, &hfdcan1);
+    tx_data.int_val = 0;  // zero bytes
+    convert_float_display(
+            &throttle_sensor.throttle_value,
+            &tx_data.second,
+            DECIMAL_POINT_2
+            );
+    send_CAN_message(0x102, &tx_data, &tx_header, &hfdcan1);
     // TODO: Remove code below
-    tx_data.int_val = 0x0000002000000030;
-    send_CAN_message(0x711, &tx_data, &tx_header, &hfdcan1);
+//    tx_data.int_val = 0x0000002000000030;
+//    send_CAN_message(0x711, &tx_data, &tx_header, &hfdcan1);
     /* USER CODE END sendThrottleDisplayCallback */
 }
 
