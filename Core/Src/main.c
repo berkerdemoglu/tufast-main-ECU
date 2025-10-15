@@ -724,8 +724,8 @@ void inverterControlCallback(void const* argument)
     /* USER CODE BEGIN inverterControlCallback */
     // Check for safe throttle (and RPM) values
     if (throttle_sensor.throttle_value.float_val <= 100.0f) {
-        tx_data.first.int_val = 0;
-        tx_data.second.float_val = 1 * throttle_sensor.throttle_value.float_val;
+        tx_data.first.float_val = 1 * throttle_sensor.throttle_value.float_val;
+        tx_data.second.int_val = 0;
         add_can_msg_to_queue(0x301, &tx_data);
 
         add_can_msg_to_queue(0x201, &inverter_on_msg);
