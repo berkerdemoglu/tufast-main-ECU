@@ -50,6 +50,7 @@ DMA_HandleTypeDef hdma_adc2;
 FDCAN_HandleTypeDef hfdcan1;
 
 osThreadId defaultTaskHandle;
+osThreadId sendCanTaskHandle;
 osTimerId sendStateDisplayHandle;
 osTimerId rearlightControlHandle;
 osTimerId sendThrottleDisplayHandle;
@@ -99,6 +100,7 @@ static void MX_DMA_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_FDCAN1_Init(void);
 void StartDefaultTask(void const* argument);
+void StartSendCanTask(void const* argument);
 void sendStateDisplayCallback(void const* argument);
 void rearlightControlCallback(void const* argument);
 void sendThrottleDisplayCallback(void const* argument);
@@ -273,6 +275,10 @@ int main(void)
     /* definition and creation of defaultTask */
     osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
     defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+    /* definition and creation of sendCanTask */
+    osThreadDef(sendCanTask, StartSendCanTask, osPriorityNormal, 0, 128);
+    sendCanTaskHandle = osThreadCreate(osThread(sendCanTask), NULL);
 
     /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
@@ -594,7 +600,23 @@ void StartDefaultTask(void const* argument)
             adc_complete_flag = 0;
             HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
         }
+        osDelay(1);
+    }
+    /* USER CODE END 5 */
+}
 
+/* USER CODE BEGIN Header_StartSendCanTask */
+/**
+ * @brief Function implementing the sendCanTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartSendCanTask */
+void StartSendCanTask(void const* argument)
+{
+    /* USER CODE BEGIN StartSendCanTask */
+    /* Infinite loop */
+    for (;;) {
         // Send CAN msg if we can
         if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) > 0) {
             osEvent event = osMailGet(can_msg_queue_id, osWaitForever);
@@ -609,9 +631,9 @@ void StartDefaultTask(void const* argument)
             osMailFree(can_msg_queue_id, received);
 
         }
-        osDelay(1);
-        /* USER CODE END 5 */
+//        osDelay(1);
     }
+    /* USER CODE END StartSendCanTask */
 }
 
 /* sendStateDisplayCallback function */
