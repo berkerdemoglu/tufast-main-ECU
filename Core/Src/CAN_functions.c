@@ -84,7 +84,7 @@ void check_moto_state(enum MotoState moto_state) {
 }
 
 void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
-        FDCAN_HandleTypeDef* hfdcan1) {
+    FDCAN_HandleTypeDef* hfdcan1) {
     // Update ID of the transmit header
     tx_header->Identifier = address;
 
@@ -93,10 +93,9 @@ void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTy
         while (1) {
         }  // error Handler
     }
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_8);  //  light flashing to see if transmits
 }
 void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
-        FDCAN_HandleTypeDef* hfdcan1) {
+    FDCAN_HandleTypeDef* hfdcan1) {
     // Update ID of the transmit header
     tx_header->Identifier = address;
     tx_header->DataLength = FDCAN_DLC_BYTES_4;
@@ -120,6 +119,7 @@ void charger_comms_init(struct ChargerCommState* ccs) {
     ccs->state = CHARGER_OFF;
     ccs->flag_byte = 1;  // TODO: maybe init with 0?
 }
+
 void handle_charger_CAN(can_message_eight* tx_data,
     FDCAN_TxHeaderTypeDef* tx_header,
     struct ChargerCommState* charger_comm_state,
@@ -157,7 +157,7 @@ void handle_charger_CAN(can_message_eight* tx_data,
 }
 
 void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTypeDef* tx_header,
-        enum BMSCommState* bms_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
+    enum BMSCommState* bms_comm_state, FDCAN_HandleTypeDef* hfdcan1) {
     // TODO: this function needs more work!
     if (*bms_comm_state == BMS_SLEEP) {
         tx_data->bytes[0] = 0x20;
@@ -183,7 +183,7 @@ void handle_BMS_CAN(uint8_t value, can_message_eight* tx_data, FDCAN_TxHeaderTyp
 
 // Display transmission functions
 void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
-        can_message_eight* tx_data) {
+    can_message_eight* tx_data) {
     // Send throttle in the first 4 bytes
     th->throttle_value.float_val *= 2;  // TODO: fix, this could be a problem!
     convert_float_display(&th->throttle_value, &tx_data->first, DECIMAL_POINT_2);
@@ -193,7 +193,7 @@ void send_throttle_display(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header
 }
 
 void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1,
-        can_message_eight* tx_data, struct Throttle* throttle_sensor) {
+    can_message_eight* tx_data, struct Throttle* throttle_sensor) {
     // Check for safe throttle (and RPM) values
     if (throttle_sensor->throttle_value.float_val <= 100.0f) {
         tx_data->first.int_val = 0;

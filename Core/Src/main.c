@@ -546,15 +546,16 @@ void StartDefaultTask(void const* argument) {
 //        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
 //        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
 
-//        if (adc_complete_flag) {
-//            // Get throttle
-//            convert_adc_throttle(&throttle_sensor, raw_adc_value);
-//
-//            // Reset ADC input
-//            adc_complete_flag = 0;
-//            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
-//        }
-        osDelay(100);
+        if (adc_complete_flag) {
+            // Get throttle
+            convert_adc_throttle(&throttle_sensor, raw_adc_value);
+
+            // Reset ADC input
+
+            adc_complete_flag = 0;
+            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
+        }
+//        osDelay(100);
     }
     /* USER CODE END 5 */
 }
@@ -626,7 +627,7 @@ void relayReadCallback(void const* argument) {
 void CallbackCharge(void const* argument) {
     /* USER CODE BEGIN CallbackCharge */
     if (moto_state == STATE_CHARGE) {
-        handle_charger_CAN(&tx_data_four, &tx_header, &charger_comm_state, &hfdcan1, bat);
+        handle_charger_CAN(&tx_data, &tx_header, &charger_comm_state, &hfdcan1);
     }
     /* USER CODE END CallbackCharge */
 }
