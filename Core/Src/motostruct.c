@@ -94,10 +94,12 @@ void handle_button_press(struct RaceState* rs, uint8_t button_index) {
         // send_race_mode_display(rs, &tx_header, &hfdcan1);
     }
 }
-void check_moto_state_LED(enum MotoState* moto_state) {
-    switch (*moto_state) {
+
+void update_led_cluster(enum MotoState moto_state) {
+    switch (moto_state) {
         case STATE_SAFE:
-            HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
+            uint8_t flipped_state = GPIO_PIN_SET - HAL_GPIO_ReadPin(PORT_GREEN_LED, PIN_GREEN_LED);
+            set_output_pins(GPIO_PIN_RESET, flipped_state, GPIO_PIN_RESET, GPIO_PIN_RESET);
             break;
         case STATE_ENGAGED:
             set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
@@ -110,28 +112,25 @@ void check_moto_state_LED(enum MotoState* moto_state) {
             break;
     }
 }
-void readRelay(enum MotoState* moto_state) {
-    uint8_t sw1 = HAL_GPIO_ReadPin(TSMS_GPIO_Port, TSMS_Pin);
-    uint8_t sw2 = HAL_GPIO_ReadPin(LVMS_GPIO_Port, LVMS_Pin);
-    uint8_t sw3 = HAL_GPIO_ReadPin(RELAY_CHARGER_GPIO_Port, RELAY_CHARGER_Pin);
-    uint8_t sw4 = HAL_GPIO_ReadPin(LVMS_GPIO_Port, LVMS_Pin);
 
-    if (sw1 == GPIO_PIN_SET && sw2 == GPIO_PIN_RESET && sw3 == GPIO_PIN_RESET) {
-        // engaged
-        *moto_state = STATE_ENGAGED;
-    } else if (sw2 == GPIO_PIN_SET) {
-        // Action 2 : not safe
+void readRelay(enum MotoState* moto_state) {
+    uint8_t imd = HAL_GPIO_ReadPin(IMD_GPIO_Port, IMD_Pin);
+    uint8_t tsms = HAL_GPIO_ReadPin(TSMS_GPIO_Port, TSMS_Pin);
+    uint8_t charger = HAL_GPIO_ReadPin(RELAY_CHARGER_GPIO_Port, RELAY_CHARGER_Pin);
+
+    if (imd == GPIO_PIN_RESET) {
+        // Action 1 : not safe, error
         *moto_state = STATE_ERROR;
-    } else if (sw3 == GPIO_PIN_SET) {
+    } else if (tsms == GPIO_PIN_RESET) {
+        // safe
+        *moto_state = STATE_SAFE;
+    } else if (charger == GPIO_PIN_SET) {
         // Charge
         *moto_state = STATE_CHARGE;
     } else {
-        // safe
-        *moto_state = STATE_SAFE;
+        // engaged
+        *moto_state = STATE_ENGAGED;
     }
-    if (sw4 == GPIO_PIN_SET) {
-        // info: LVMS is closed
-
-    }
+//    *moto_state = STATE_ERROR;  // todo remove
 }
 // TODO: Update tx_header every time

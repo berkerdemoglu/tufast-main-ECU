@@ -73,10 +73,6 @@ void fault_pin_service(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define ESDB2_Pin GPIO_PIN_0
-#define ESDB2_GPIO_Port GPIOA
-#define ESDB_Pin GPIO_PIN_1
-#define ESDB_GPIO_Port GPIOA
 #define Normal_Pin GPIO_PIN_4
 #define Normal_GPIO_Port GPIOA
 #define Charge_Led_Pin GPIO_PIN_5
@@ -87,16 +83,14 @@ void fault_pin_service(void);
 #define Throttle_GPIO_Port GPIOA
 #define Precharge_Pin GPIO_PIN_0
 #define Precharge_GPIO_Port GPIOB
-#define Sensata_Aux_Pin GPIO_PIN_8
-#define Sensata_Aux_GPIO_Port GPIOA
+#define IMD_Pin GPIO_PIN_8
+#define IMD_GPIO_Port GPIOA
 #define Green_LED_Pin GPIO_PIN_9
 #define Green_LED_GPIO_Port GPIOA
 #define RELAY_CHARGER_Pin GPIO_PIN_10
 #define RELAY_CHARGER_GPIO_Port GPIOA
 #define Debug_LED_Pin GPIO_PIN_3
 #define Debug_LED_GPIO_Port GPIOB
-#define LVMS_Pin GPIO_PIN_4
-#define LVMS_GPIO_Port GPIOB
 #define TSMS_Pin GPIO_PIN_5
 #define TSMS_GPIO_Port GPIOB
 

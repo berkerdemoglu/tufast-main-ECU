@@ -76,7 +76,6 @@ void handle_BMS_CAN(uint8_t value,
 void throttle_init(struct Throttle* thr);
 void convert_adc_throttle(struct Throttle* th, uint16_t raw_adc_value);
 
-void check_moto_state(enum MotoState moto_state);
 void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1);
 void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,

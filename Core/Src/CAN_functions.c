@@ -66,25 +66,9 @@ void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
     }
 }
 
-void check_moto_state(enum MotoState moto_state) {
-    switch (moto_state) {
-        case STATE_SAFE:
-            HAL_GPIO_TogglePin(PORT_GREEN_LED, PIN_GREEN_LED);
-            break;
-        case STATE_ENGAGED:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET, GPIO_PIN_RESET);
-            break;
-        case STATE_CHARGE:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET, GPIO_PIN_RESET);
-            break;
-        case STATE_ERROR:
-            set_output_pins(GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_SET);
-            break;
-    }
-}
-
 void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1) {
+    // TODO: Delete this function
     // Update ID of the transmit header
 //    tx_header->Identifier = address;
 
@@ -111,7 +95,7 @@ void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHead
     tx_header->DataLength = FDCAN_DLC_BYTES_8;
 }
 void send_turn_on_inverter(FDCAN_TxHeaderTypeDef* tx_header, FDCAN_HandleTypeDef* hfdcan1) {
-// Sends an ON message to the inverter
+    // Sends an ON message to the inverter
     can_message_eight inverter_on_msg = { .int_val = 0x0101010101010101 };
 
     send_CAN_message(0x201, &inverter_on_msg, tx_header, hfdcan1);
@@ -127,7 +111,7 @@ void handle_charger_CAN(can_message_eight* tx_data,
     FDCAN_TxHeaderTypeDef* tx_header,
     struct ChargerCommState* charger_comm_state,
     FDCAN_HandleTypeDef* hfdcan1) {
-// Send a message to MoTeC that will be relayed to the charger
+    // Send a message to MoTeC that will be relayed to the charger
     switch (charger_comm_state->state) {
         case CHARGER_OFF:
             tx_data->second.int_val = 0x00000000;
@@ -148,14 +132,14 @@ void handle_charger_CAN(can_message_eight* tx_data,
     }
     tx_data->first.int_val = charger_comm_state->flag_byte;
 
-// Update the flag byte
+    // Update the flag byte
     if (charger_comm_state->flag_byte == 1) {
         charger_comm_state->flag_byte = 2;
     } else {
         charger_comm_state->flag_byte = 0;
     }
 
-// Send the message to the dashboard
+    // Send the message to the dashboard
     send_CAN_message(0x302, tx_data, tx_header, hfdcan1);
 }
 
