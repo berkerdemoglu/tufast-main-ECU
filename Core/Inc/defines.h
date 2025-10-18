@@ -48,6 +48,8 @@
 #define PORT_ESDB_TWO      GPIOA
 #define PIN_ESDB_TWO       GPIO_PIN_0
 
+#define BMS_Pin GPIO_PIN_1
+#define BMS_GPIO_Port GPIOA
 #define Normal_Pin GPIO_PIN_4
 #define Normal_GPIO_Port GPIOA
 #define Charge_Led_Pin GPIO_PIN_5
