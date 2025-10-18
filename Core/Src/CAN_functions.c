@@ -29,7 +29,8 @@ void throttle_init(struct Throttle* thr) {
 
 void convert_adc_throttle(struct Throttle* th, uint16_t adc_value) {
     // Calibration
-    float volt = 3.3f * ((float) adc_value) / 4096.0f;  // TODO: we should always get 0 ?
+    float volt = 3.3f * ((float) adc_value) / 4096.0f;
+//    float calc = ((float) adc_value - 470) * 100.0f / 705.0f;  // Use if throttle always shows 0
     float calc = ((float) volt - 0.42f) * 100.0f / 1.65f;
 
     th->adc_sum -= th->buffer[th->buffer_index];

@@ -52,12 +52,10 @@ FDCAN_HandleTypeDef hfdcan1;
 osThreadId defaultTaskHandle;
 osThreadId sendCanTaskHandle;
 osTimerId sendStateDisplayHandle;
-osTimerId rearlightControlHandle;
-osTimerId sendThrottleDisplayHandle;
-osTimerId ledClusterHandle;
-osTimerId relayReadHandle;
-osTimerId chargeHandle;
-osTimerId inverterControlHandle;
+osTimerId sendThrottleHandle;
+osTimerId motorStateUpdateHandle;
+osTimerId bmsStateTimerHandle;
+osTimerId updateLedClusterHandle;
 /* USER CODE BEGIN PV */
 // Race state
 struct RaceState race_state;
@@ -74,7 +72,7 @@ FDCAN_ErrorCountersTypeDef ec;
 struct Throttle throttle_sensor;
 struct battery bat;
 
-int checkcounter = 0;
+uint32_t inverter_counter = 0;
 // CAN
 FDCAN_TxHeaderTypeDef tx_header;
 can_message_eight tx_data;
@@ -108,12 +106,10 @@ static void MX_FDCAN1_Init(void);
 void StartDefaultTask(void const* argument);
 void StartSendCanTask(void const* argument);
 void sendStateDisplayCallback(void const* argument);
-void rearlightControlCallback(void const* argument);
-void sendThrottleDisplayCallback(void const* argument);
-void ledClusterCallback(void const* argument);
-void relayReadCallback(void const* argument);
-void CallbackCharge(void const* argument);
-void inverterControlCallback(void const* argument);
+void sendThrottleCallback(void const* argument);
+void motorStateUpdateCallback(void const* argument);
+void bmsStateTimerCallback(void const* argument);
+void updateLedClusterCallback(void const* argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -145,7 +141,6 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     button_data_test.int_val = rx_data.int_val;
                     handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
                     break;
-
                 case 0x341: // BMS
                     for (int i = 0; i < 8; i++)
                         bat.raw[i] = rx_data.bytes[i];
@@ -237,39 +232,29 @@ int main(void)
     osTimerDef(sendStateDisplay, sendStateDisplayCallback);
     sendStateDisplayHandle = osTimerCreate(osTimer(sendStateDisplay), osTimerPeriodic, NULL);
 
-    /* definition and creation of rearlightControl */
-    osTimerDef(rearlightControl, rearlightControlCallback);
-    rearlightControlHandle = osTimerCreate(osTimer(rearlightControl), osTimerPeriodic, NULL);
+    /* definition and creation of sendThrottle */
+    osTimerDef(sendThrottle, sendThrottleCallback);
+    sendThrottleHandle = osTimerCreate(osTimer(sendThrottle), osTimerPeriodic, NULL);
 
-    /* definition and creation of sendThrottleDisplay */
-    osTimerDef(sendThrottleDisplay, sendThrottleDisplayCallback);
-    sendThrottleDisplayHandle = osTimerCreate(osTimer(sendThrottleDisplay), osTimerPeriodic, NULL);
+    /* definition and creation of motorStateUpdate */
+    osTimerDef(motorStateUpdate, motorStateUpdateCallback);
+    motorStateUpdateHandle = osTimerCreate(osTimer(motorStateUpdate), osTimerPeriodic, NULL);
 
-    /* definition and creation of ledCluster */
-    osTimerDef(ledCluster, ledClusterCallback);
-    ledClusterHandle = osTimerCreate(osTimer(ledCluster), osTimerPeriodic, NULL);
+    /* definition and creation of bmsStateTimer */
+    osTimerDef(bmsStateTimer, bmsStateTimerCallback);
+    bmsStateTimerHandle = osTimerCreate(osTimer(bmsStateTimer), osTimerOnce, NULL);
 
-    /* definition and creation of relayRead */
-    osTimerDef(relayRead, relayReadCallback);
-    relayReadHandle = osTimerCreate(osTimer(relayRead), osTimerPeriodic, NULL);
-
-    /* definition and creation of charge */
-    osTimerDef(charge, CallbackCharge);
-    chargeHandle = osTimerCreate(osTimer(charge), osTimerPeriodic, NULL);
-
-    /* definition and creation of inverterControl */
-    osTimerDef(inverterControl, inverterControlCallback);
-    inverterControlHandle = osTimerCreate(osTimer(inverterControl), osTimerPeriodic, NULL);
+    /* definition and creation of updateLedCluster */
+    osTimerDef(updateLedCluster, updateLedClusterCallback);
+    updateLedClusterHandle = osTimerCreate(osTimer(updateLedCluster), osTimerPeriodic, NULL);
 
     /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-    osTimerStart(sendStateDisplayHandle, 50);
-    osTimerStart(rearlightControlHandle, 200);
-    osTimerStart(sendThrottleDisplayHandle, 50);  // TODO: reduce this to 5-10 ms
-    osTimerStart(ledClusterHandle, 1000);
-    osTimerStart(relayReadHandle, 100);
-    osTimerStart(chargeHandle, 100);
-    osTimerStart(inverterControlHandle, 100);  // TODO: decide on time
+    osTimerStart(sendStateDisplayHandle, 100);  // change back to 50 if we have problems
+    osTimerStart(sendThrottleHandle, 50);  // 20 Hz - matches the refresh rate of the display
+    osTimerStart(updateLedClusterHandle, 1000);
+    osTimerStart(motorStateUpdateHandle, 100);
+    osTimerStart(bmsStateTimerHandle, 5000);  // wait for 5s, one-shot timer
     /* USER CODE END RTOS_TIMERS */
 
     /* USER CODE BEGIN RTOS_QUEUES */
@@ -312,19 +297,6 @@ int main(void)
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1) {
-//        if (adc_complete_flag) {
-//            // Get throttle
-//            convert_adc_throttle(&throttle_sensor, raw_adc_value);
-//
-//            // Reset ADC input
-//            adc_complete_flag = 0;
-//            HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
-//        }
-
-        // TODO: uncomment the function calls below (?)
-        // state of the motorcycle
-        // fault_pin_service();
-        // check_moto_state();
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
@@ -589,23 +561,18 @@ void StartDefaultTask(void const* argument)
     /* USER CODE BEGIN 5 */
     /* Infinite loop */
     for (;;) {
-        // TODO: Remove this CAN testing stuff below
-        HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-        HAL_FDCAN_GetErrorCounters(&hfdcan1, &ec);
-
         // Check ADC
         if (adc_complete_flag) {
             // Get throttle
             convert_adc_throttle(&throttle_sensor, raw_adc_value);
 
             // Reset ADC input
-
             adc_complete_flag = 0;
             HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &raw_adc_value, 1);
         } else {
             osThreadYield();
         }
-//        osDelay(1);
+//        osDelay(1);  // TODO: Uncomment if we have problems with CAN/throttle
     }
     /* USER CODE END 5 */
 }
@@ -638,7 +605,7 @@ void StartSendCanTask(void const* argument)
         } else {
             osThreadYield();
         }
-//        osDelay(1);
+//        osDelay(1);  // TODO: Uncomment if we have problems with CAN/throttle
     }
     /* USER CODE END StartSendCanTask */
 }
@@ -664,24 +631,10 @@ void sendStateDisplayCallback(void const* argument)
     /* USER CODE END sendStateDisplayCallback */
 }
 
-/* rearlightControlCallback function */
-void rearlightControlCallback(void const* argument)
+/* sendThrottleCallback function */
+void sendThrottleCallback(void const* argument)
 {
-    /* USER CODE BEGIN rearlightControlCallback */
-    if (race_state.rain_state == STATE_RAIN) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-    } else if (race_state.race_mode == MODE_RACE) {
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-    }
-    /* USER CODE END rearlightControlCallback */
-}
-
-/* sendThrottleDisplayCallback function */
-void sendThrottleDisplayCallback(void const* argument)
-{
-    /* USER CODE BEGIN sendThrottleDisplayCallback */
+    /* USER CODE BEGIN sendThrottleCallback */
     tx_data.int_val = 0;  // zero bytes
     convert_float_display(
             &throttle_sensor.throttle_value,
@@ -689,67 +642,67 @@ void sendThrottleDisplayCallback(void const* argument)
             DECIMAL_POINT_2
             );
     add_can_msg_to_queue(0x102, &tx_data);
-// TODO: Remove code below
-//    tx_data.int_val = 0x0000002000000030;
-//    send_CAN_message(0x711, &tx_data, &tx_header, &hfdcan1);
-    /* USER CODE END sendThrottleDisplayCallback */
+
+    // Send throttle value to inverter
+    tx_data.int_val = 0;  // zero bytes
+    // Check for safe throttle (and RPM) values
+    if (throttle_sensor.throttle_value.float_val <= 100.0f) {
+        // tx_data.first - torque reference
+        // tx_data.second - velocity reference
+        tx_data.first.float_val = throttle_sensor.throttle_value.float_val / 10.0f;
+        tx_data.second.float_val = throttle_sensor.throttle_value.float_val * 7.0f;
+        add_can_msg_to_queue(0x301, &tx_data);
+
+        if (inverter_counter > 10) {
+            add_can_msg_to_queue(0x201, &inverter_on_msg);
+        } else {
+            add_can_msg_to_queue(0x201, &inverter_reset);
+        }
+        inverter_counter++;
+
+        // add_can_msg_to_queue(0x501, &tx_data);  // TODO: What's this?
+    }
+    /* USER CODE END sendThrottleCallback */
 }
 
-/* ledClusterCallback function */
-void ledClusterCallback(void const* argument)
+/* motorStateUpdateCallback function */
+void motorStateUpdateCallback(void const* argument)
 {
-    /* USER CODE BEGIN ledClusterCallback */
-    update_led_cluster(moto_state);
-    /* USER CODE END ledClusterCallback */
-}
-
-/* relayReadCallback function */
-void relayReadCallback(void const* argument)
-{
-    /* USER CODE BEGIN relayReadCallback */
+    /* USER CODE BEGIN motorStateUpdateCallback */
+    // Check the state of relays and update motorcycle state
     readRelay(&moto_state);
-    /* USER CODE END relayReadCallback */
-}
 
-/* CallbackCharge function */
-void CallbackCharge(void const* argument)
-{
-    /* USER CODE BEGIN CallbackCharge */
+    // If we are in charge mode, send msg to charger
     if (moto_state == STATE_CHARGE) {
         handle_charger_CAN(&tx_data, &tx_header, &charger_comm_state, &hfdcan1);
     }
-    /* USER CODE END CallbackCharge */
+
+    // Flash rearlight based on motorcycle and rain state
+    if (race_state.rain_state == STATE_RAIN) {
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+    } else if (race_state.race_mode == MODE_RACE) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+    }
+    /* USER CODE END motorStateUpdateCallback */
 }
 
-/* inverterControlCallback function */
-void inverterControlCallback(void const* argument)
+/* bmsStateTimerCallback function */
+void bmsStateTimerCallback(void const* argument)
 {
-    /* USER CODE BEGIN inverterControlCallback */
-    // Check for safe throttle (and RPM) values
-    if (throttle_sensor.throttle_value.float_val <= 100.0f) {
-        tx_data.first.float_val = throttle_sensor.throttle_value.float_val / 10.0f;
-        tx_data.second.float_val = throttle_sensor.throttle_value.float_val * 7.0f;
-//        tx_data.second.float_val = 90.0f;
-        add_can_msg_to_queue(0x301, &tx_data);
+    /* USER CODE BEGIN bmsStateTimerCallback */
+    moto_charge = STATE_NORMAL;
+    /* USER CODE END bmsStateTimerCallback */
+}
 
-        if (checkcounter > 10) {
-            checkcounter++;
-//            HAL_Delay(2);
-            add_can_msg_to_queue(0x201, &inverter_on_msg);
-        }
-        else
-        {
-            checkcounter++;
-            add_can_msg_to_queue(0x201, &inverter_reset);
-
-//            HAL_Delay(2);
-        }
-
-        //add_can_msg_to_queue(0x501, &tx_data);
-
-    }
-    int a = 0;
-    /* USER CODE END inverterControlCallback */
+/* updateLedClusterCallback function */
+void updateLedClusterCallback(void const* argument)
+{
+    /* USER CODE BEGIN updateLedClusterCallback */
+    // Flash the LEDs based on motorcycle state
+    update_led_cluster(moto_state);
+    /* USER CODE END updateLedClusterCallback */
 }
 
 /**

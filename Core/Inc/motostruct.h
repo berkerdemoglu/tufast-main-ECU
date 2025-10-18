@@ -23,8 +23,8 @@ enum MotoState {
 };
 
 enum MotoCharge {
-    STATE_PRECHARGE = 0,
-    STATE_NORMAL = 1,
+    STATE_PRECHARGE = 1,
+    STATE_NORMAL = 2,
 };
 
 // Communication state with the charger
