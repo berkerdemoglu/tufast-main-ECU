@@ -54,7 +54,7 @@ osThreadId sendCanTaskHandle;
 osTimerId sendStateDisplayHandle;
 osTimerId sendThrottleHandle;
 osTimerId motorStateUpdateHandle;
-osTimerId bmsStateTimerHandle;
+osTimerId chargeStateTimerHandle;
 osTimerId updateLedClusterHandle;
 /* USER CODE BEGIN PV */
 // Race state
@@ -108,7 +108,7 @@ void StartSendCanTask(void const* argument);
 void sendStateDisplayCallback(void const* argument);
 void sendThrottleCallback(void const* argument);
 void motorStateUpdateCallback(void const* argument);
-void bmsStateTimerCallback(void const* argument);
+void chargeStateTimerCallback(void const* argument);
 void updateLedClusterCallback(void const* argument);
 
 /* USER CODE BEGIN PFP */
@@ -240,9 +240,9 @@ int main(void)
     osTimerDef(motorStateUpdate, motorStateUpdateCallback);
     motorStateUpdateHandle = osTimerCreate(osTimer(motorStateUpdate), osTimerPeriodic, NULL);
 
-    /* definition and creation of bmsStateTimer */
-    osTimerDef(bmsStateTimer, bmsStateTimerCallback);
-    bmsStateTimerHandle = osTimerCreate(osTimer(bmsStateTimer), osTimerOnce, NULL);
+    /* definition and creation of chargeStateTimer */
+    osTimerDef(chargeStateTimer, chargeStateTimerCallback);
+    chargeStateTimerHandle = osTimerCreate(osTimer(chargeStateTimer), osTimerOnce, NULL);
 
     /* definition and creation of updateLedCluster */
     osTimerDef(updateLedCluster, updateLedClusterCallback);
@@ -254,7 +254,7 @@ int main(void)
     osTimerStart(sendThrottleHandle, 50);  // 20 Hz - matches the refresh rate of the display
     osTimerStart(updateLedClusterHandle, 1000);
     osTimerStart(motorStateUpdateHandle, 100);
-    osTimerStart(bmsStateTimerHandle, 5000);  // wait for 5s, one-shot timer
+    osTimerStart(chargeStateTimerHandle, 5000);  // wait for 5s, one-shot timer
     /* USER CODE END RTOS_TIMERS */
 
     /* USER CODE BEGIN RTOS_QUEUES */
@@ -688,14 +688,15 @@ void motorStateUpdateCallback(void const* argument)
     /* USER CODE END motorStateUpdateCallback */
 }
 
-/* bmsStateTimerCallback function */
-void bmsStateTimerCallback(void const* argument)
+/* chargeStateTimerCallback function */
+void chargeStateTimerCallback(void const* argument)
 {
-    /* USER CODE BEGIN bmsStateTimerCallback */
+    /* USER CODE BEGIN chargeStateTimerCallback */
     moto_charge = STATE_NORMAL;
-    // Close the relay
-    HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_SET);
-    /* USER CODE END bmsStateTimerCallback */
+    // Turn off precharge and close relay
+    HAL_GPIO_WritePin(Precharge_GPIO_Port, Precharge_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(Normal_GPIO_Port, Normal_Pin, GPIO_PIN_SET);
+    /* USER CODE END chargeStateTimerCallback */
 }
 
 /* updateLedClusterCallback function */
