@@ -215,7 +215,10 @@ int main(void)
     charger_comms_init(&charger_comm_state);
 
     // Turn on the inverter
-//    send_turn_on_inverter(&tx_header, &hfdcan1);
+//    send_turn_on_inverter(&tx_header, &hfdcan1);  // TODO: Remove if unused
+
+    // Close the precharge relay (initial state is precharge)
+    HAL_GPIO_WritePin(Precharge_GPIO_Port, Precharge_Pin, GPIO_PIN_SET);
 
     /* USER CODE END 2 */
 
