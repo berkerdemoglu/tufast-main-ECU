@@ -93,6 +93,28 @@ struct BMSErrorState {
     uint8_t primary_bmu_failure_status;
 };
 
+struct BMSChargerState {
+    // 0x510
+    uint16_t charge_current_limit;
+    uint16_t discharge_current_limit;
+    uint8_t bmu_status_flag;
+    uint8_t fully_charged_flag;
+    uint8_t charge_control_state;
+
+    // 0x520
+    uint16_t charge_voltage_setpoint;
+    uint16_t discharge_voltage_setpoint;
+    uint16_t charge_current_setpoint;
+    uint16_t discharge_current_setpoint;
+
+    // 0x540, 0x560
+    uint16_t pack_current;
+    uint16_t pack_voltage;
+
+    // Safety State
+    uint8_t is_bms_error;
+};
+
 void handle_moto_discharge(enum MotoState* moto_state);
 void handle_moto_state(enum MotoState* moto_state);
 void set_output_pins(GPIO_PinState o1, GPIO_PinState o2, GPIO_PinState o3, GPIO_PinState o4);

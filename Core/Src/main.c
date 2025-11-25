@@ -73,6 +73,7 @@ struct Throttle throttle_sensor;
 struct battery bat;
 BMSMaxMinInfo bms_max_min_info;
 struct BMSErrorState bms_error_state;
+struct BMSChargerState bms_charger_state;
 
 uint32_t inverter_counter = 0;
 // CAN
@@ -177,19 +178,62 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     bms_error_state.primary_bmu_failure_status = rx_data.bytes[3];
                     break;
                 case 0x510:
-                    // TODO
+                    // Byte 0-1: Charge Current Limit
+                    bms_charger_state.charge_current_limit = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
+                    // Byte 2-3: Discharge Current Limit
+                    bms_charger_state.discharge_current_limit = ((uint16_t) rx_data.bytes[2] << 8) | rx_data.bytes[3];
+
+                    // Byte 4: Flags (Stop Charge / Error)
+                    bms_charger_state.bmu_status_flag = rx_data.bytes[4];
+
+                    // Byte 5: Fully Charged
+                    bms_charger_state.fully_charged_flag = rx_data.bytes[5];
+
+                    // Byte 6: Charge/Discharge Control State
+                    bms_charger_state.charge_control_state = rx_data.bytes[6];
+
+                    // --- LOGIC: Check Flags ---
+                    // Assuming "1" means Error/Stop. Adjust bitmasks if specific bits are used.
+                    if (bms_charger_state.bmu_status_flag != 0 || bms_charger_state.fully_charged_flag != 0) {
+//                        charger_comm_state.state = CHARGER_OFF;  // TODO: Uncomment
+
+                        // If it's a critical failure (not just stop charge), open relay
+                        if (bms_charger_state.bmu_status_flag & 0x01) { // Example: Bit 0 is failure
+//                            open_safety_relay();  // TODO: Implement with GPIO ZERO
+                        } else {  // No failure
+                            // TODO: Implement with GPIO ONE
+                        }
+                    } else {
+                        // If flags are clear, we are allowed to charge
+//                        charger_comm_state.state = CHARGER_VOUT_SET;  // TODO: Uncomment
+                    }
                     break;
                 case 0x520:
-                    // TODO
+                    // Byte 0-1: Charge Voltage Setpoint (Send to Charger!)
+                    bms_charger_state.charge_voltage_setpoint = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
+
+                    // Byte 2-3: Discharge Voltage Setpoint (Send to Inverter)
+                    bms_charger_state.discharge_voltage_setpoint = ((uint16_t) rx_data.bytes[2] << 8) | rx_data.bytes[3];
+
+                    // Byte 4-5: Charge Current Setpoint (Send to Charger!)
+                    bms_charger_state.charge_current_setpoint = ((uint16_t) rx_data.bytes[4] << 8) | rx_data.bytes[5];
+
+                    // Byte 6-7: Discharge Current Setpoint (Send to Inverter)
+                    bms_charger_state.discharge_current_setpoint = ((uint16_t) rx_data.bytes[6] << 8) | rx_data.bytes[7];
+
                     break;
                 case 0x530:
-                    // TODO
+                    // "If any of these errors at any of the 8 bytes = 1 open relay"
+                    if (rx_data.int_val != 0) {
+                        bms_charger_state.is_bms_error = 1;
+//                        open_safety_relay();  // TODO: Open realy with GPIO ZERO
+                    }
                     break;
                 case 0x540:
-                    // TODO
+                    bms_charger_state.pack_current = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
                     break;
                 case 0x560:
-                    // TODO
+                    bms_charger_state.pack_voltage = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
                     break;
                 case 0x5C0:
                     // TODO
