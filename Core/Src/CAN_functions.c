@@ -191,14 +191,23 @@ void send_velocity_ref_inverter(struct Throttle* th, FDCAN_TxHeaderTypeDef* tx_h
         send_turn_on_inverter(tx_header, hfdcan1);
     }
 }
+
 uint16_t convertBigEndian(uint8_t byte0, uint8_t byte1) {
     uint16_t value = byte0 * 256 + byte1;
     return value;
 }
-void convert_BMS_CAN(uint8_t receive_BMS[8], battery* bat) {
 
+void convert_BMS_CAN(uint8_t receive_BMS[8], battery* bat) {
     bat->voltage = convertBigEndian(receive_BMS[0], receive_BMS[1]) * 0.1;
     bat->current = convertBigEndian(receive_BMS[2], receive_BMS[3]) * 0.1;
     bat->capacity = convertBigEndian(receive_BMS[4], receive_BMS[5]) * 1;
     bat->soc = convertBigEndian(receive_BMS[6], receive_BMS[7]) * 0.01;
+}
+
+void big_to_little_endian_inplace(can_message_eight* msg) {
+    for (int i = 0; i < 4; i++) {
+        uint8_t tmp = msg->bytes[i];
+        msg->bytes[i] = msg->bytes[7 - i];
+        msg->bytes[7 - i] = tmp;
+    }
 }

@@ -71,6 +71,8 @@ FDCAN_ErrorCountersTypeDef ec;
 // Sensors
 struct Throttle throttle_sensor;
 struct battery bat;
+BMSMaxMinInfo bms_max_min_info;
+struct BMSErrorState bms_error_state;
 
 uint32_t inverter_counter = 0;
 // CAN
@@ -141,12 +143,56 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     button_data_test.int_val = rx_data.int_val;
                     handle_button_press(&race_state, rx_data.bytes[0]);  // we pass the adress of race_state
                     break;
+                case 0x241:  // TODO: Refactor this ChatGPT ahh code
+                    // rx_data.bytes[] contains: [HB][LB] [HB][LB] [HB][LB] [HB][LB]
+
+                    bms_max_min_info.max_battery_voltage =
+                            ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
+
+                    bms_max_min_info.max_battery_charge_current =
+                            ((uint16_t) rx_data.bytes[2] << 8) | rx_data.bytes[3];
+
+                    bms_max_min_info.min_battery_voltage =
+                            ((uint16_t) rx_data.bytes[4] << 8) | rx_data.bytes[5];
+
+                    bms_max_min_info.max_battery_discharge_current =
+                            ((uint16_t) rx_data.bytes[6] << 8) | rx_data.bytes[7];
+
+                    // apply scale factor 0.1 (divide by 10)
+                    bms_max_min_info.max_battery_voltage /= 10;
+                    bms_max_min_info.max_battery_charge_current /= 10;
+                    bms_max_min_info.min_battery_voltage /= 10;
+                    bms_max_min_info.max_battery_discharge_current /= 10;
+
+                    break;
                 case 0x341: // BMS
                     for (int i = 0; i < 8; i++)
                         bat.raw[i] = rx_data.bytes[i];
                     convert_BMS_CAN(bat.raw, &bat);
                     break;
-                case 0x441:
+                case 0x441:  // BMS error code
+//                    big_to_little_endian_inplace(&rx_data);
+                    bms_error_state.stop_charge_flag = rx_data.bytes[1];
+                    bms_error_state.stop_discharge_flag = rx_data.bytes[2];
+                    bms_error_state.primary_bmu_failure_status = rx_data.bytes[3];
+                    break;
+                case 0x510:
+                    // TODO
+                    break;
+                case 0x520:
+                    // TODO
+                    break;
+                case 0x530:
+                    // TODO
+                    break;
+                case 0x540:
+                    // TODO
+                    break;
+                case 0x560:
+                    // TODO
+                    break;
+                case 0x5C0:
+                    // TODO
                     break;
             }
         }
@@ -627,7 +673,7 @@ void sendStateDisplayCallback(void const* argument)
     tx_data.bytes[4] = charger_comm_state.state;
     tx_data.bytes[5] = bms_comm_state;
     tx_data.bytes[6] = button_moto;
-    tx_data.bytes[7] = 90;  // state of health, TODO
+    tx_data.bytes[7] = bat.soc;
 
     // Send the message
     add_can_msg_to_queue(0x202, &tx_data);

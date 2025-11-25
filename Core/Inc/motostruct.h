@@ -74,7 +74,24 @@ typedef struct battery {
     uint16_t capacity;
     uint16_t soc;
     uint8_t raw[8];
-} battery;
+} battery;  // TODO: Rename this struct and remove typedef
+
+typedef union {
+    uint8_t bytes[8];
+    struct {
+        uint16_t max_battery_voltage;
+        uint16_t max_battery_charge_current;
+        uint16_t min_battery_voltage;
+        uint16_t max_battery_discharge_current;
+    };
+    uint64_t int_val;
+} BMSMaxMinInfo;
+
+struct BMSErrorState {
+    uint8_t stop_charge_flag;
+    uint8_t stop_discharge_flag;
+    uint8_t primary_bmu_failure_status;
+};
 
 void handle_moto_discharge(enum MotoState* moto_state);
 void handle_moto_state(enum MotoState* moto_state);

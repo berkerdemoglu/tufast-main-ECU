@@ -81,5 +81,6 @@ void send_CAN_message(uint32_t address, can_message_eight* msg, FDCAN_TxHeaderTy
 void send_CAN_message_four(uint32_t address, can_message_four* msg, FDCAN_TxHeaderTypeDef* tx_header,
     FDCAN_HandleTypeDef* hfdcan1);
 void convert_BMS_CAN(uint8_t receive_BMS[8], battery* bat);
+void big_to_little_endian_inplace(can_message_eight* msg);
 
 #endif /* INC_CAN_FUNCTIONS_H_ */
