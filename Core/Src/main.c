@@ -177,6 +177,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     bms_error_state.stop_discharge_flag = rx_data.bytes[2];
                     bms_error_state.primary_bmu_failure_status = rx_data.bytes[3];
                     break;
+                    // TODO: BMS - Sending messages to inverter and charger after receiving from BMS
                 case 0x510:
                     // Byte 0-1: Charge Current Limit
                     bms_charger_state.charge_current_limit = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
@@ -194,18 +195,10 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
 
                     // --- LOGIC: Check Flags ---
                     // Assuming "1" means Error/Stop. Adjust bitmasks if specific bits are used.
-                    if (bms_charger_state.bmu_status_flag != 0 || bms_charger_state.fully_charged_flag != 0) {
-//                        charger_comm_state.state = CHARGER_OFF;  // TODO: Uncomment
-
-                        // If it's a critical failure (not just stop charge), open relay
-                        if (bms_charger_state.bmu_status_flag & 0x01) { // Example: Bit 0 is failure
-//                            open_safety_relay();  // TODO: Implement with GPIO ZERO
-                        } else {  // No failure
-                            // TODO: Implement with GPIO ONE
-                        }
-                    } else {
-                        // If flags are clear, we are allowed to charge
-//                        charger_comm_state.state = CHARGER_VOUT_SET;  // TODO: Uncomment
+                    if (bms_charger_state.bmu_status_flag & 0x11 == 3) {
+                        HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_RESET);
+                    } else {  // No failure
+                        HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_SET);
                     }
                     break;
                 case 0x520:
@@ -213,20 +206,24 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                     bms_charger_state.charge_voltage_setpoint = ((uint16_t) rx_data.bytes[0] << 8) | rx_data.bytes[1];
 
                     // Byte 2-3: Discharge Voltage Setpoint (Send to Inverter)
-                    bms_charger_state.discharge_voltage_setpoint = ((uint16_t) rx_data.bytes[2] << 8) | rx_data.bytes[3];
+                    bms_charger_state.discharge_voltage_setpoint = ((uint16_t) rx_data.bytes[2] << 8)
+                            | rx_data.bytes[3];
 
                     // Byte 4-5: Charge Current Setpoint (Send to Charger!)
                     bms_charger_state.charge_current_setpoint = ((uint16_t) rx_data.bytes[4] << 8) | rx_data.bytes[5];
 
                     // Byte 6-7: Discharge Current Setpoint (Send to Inverter)
-                    bms_charger_state.discharge_current_setpoint = ((uint16_t) rx_data.bytes[6] << 8) | rx_data.bytes[7];
+                    bms_charger_state.discharge_current_setpoint = ((uint16_t) rx_data.bytes[6] << 8)
+                            | rx_data.bytes[7];
 
                     break;
                 case 0x530:
                     // "If any of these errors at any of the 8 bytes = 1 open relay"
                     if (rx_data.int_val != 0) {
                         bms_charger_state.is_bms_error = 1;
-//                        open_safety_relay();  // TODO: Open realy with GPIO ZERO
+                        HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_RESET);
+                    } else {
+                        HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_SET);
                     }
                     break;
                 case 0x540:
@@ -309,6 +306,9 @@ int main(void)
 
     // Close the precharge relay (initial state is precharge)
     HAL_GPIO_WritePin(Precharge_GPIO_Port, Precharge_Pin, GPIO_PIN_SET);
+
+    // Close the BMS relay at start
+    HAL_GPIO_WritePin(BMS_GPIO_Port, BMS_Pin, GPIO_PIN_SET);
 
     /* USER CODE END 2 */
 
